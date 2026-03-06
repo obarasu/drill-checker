@@ -356,7 +356,14 @@ body {
   </button>
 </nav>
 
-<input type="file" id="cameraInput" accept="image/*" capture="environment">
+<!-- Camera live view (getUserMedia) -->
+<div id="cameraView" style="display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;">
+  <video id="cameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+  <div style="position:absolute;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;justify-content:center;gap:24px;align-items:center;">
+    <button onclick="App.closeCamera()" style="background:rgba(255,255,255,0.2);border:2px solid white;color:white;border-radius:50%;width:52px;height:52px;font-size:22px;cursor:pointer;">✕</button>
+    <button id="btnShutter" onclick="App.capturePhoto()" style="background:white;border:4px solid rgba(255,255,255,0.6);border-radius:50%;width:72px;height:72px;cursor:pointer;box-shadow:0 0 0 3px rgba(0,0,0,0.3);"></button>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -620,13 +627,7 @@ const App = (() => {
     }, 1500);
   }
 
-  // Camera mode
-  function openCamera() {
-    cameraInput.click();
-  }
-
   // Hardcoded marker positions for camera mode (% of image)
-  // Approximate positions for a typical 2-column, 4-row worksheet
   const cameraMarkerPositions = [
     { x: 38, y: 26 },  // problem 9
     { x: 38, y: 40 },  // problem 10
@@ -638,40 +639,65 @@ const App = (() => {
     { x: 85, y: 68 },  // problem 16
   ];
 
-  cameraInput.addEventListener('change', async (e) => {
-    if (!e.target.files || !e.target.files[0]) return;
+  // Camera mode — getUserMedia (no iOS confirm dialog)
+  let currentStream = null;
+  const cameraView = document.getElementById('cameraView');
+  const cameraVideo = document.getElementById('cameraVideo');
 
-    const file = e.target.files[0];
-    const url = URL.createObjectURL(file);
+  async function openCamera() {
+    try {
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+      cameraVideo.srcObject = currentStream;
+      cameraView.style.display = 'flex';
+    } catch (err) {
+      alert('カメラを開けませんでした。カメラの許可を確認してください。');
+    }
+  }
 
-    // Show photo
+  function closeCamera() {
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => t.stop());
+      currentStream = null;
+    }
+    cameraVideo.srcObject = null;
+    cameraView.style.display = 'none';
+  }
+
+  async function capturePhoto() {
+    // Capture frame from video to canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = cameraVideo.videoWidth;
+    canvas.height = cameraVideo.videoHeight;
+    canvas.getContext('2d').drawImage(cameraVideo, 0, 0);
+
+    // Close camera immediately — no confirmation needed
+    closeCamera();
+
+    // Show captured photo
     photoContainer.innerHTML = '';
     const img = document.createElement('img');
-    img.src = url;
+    img.src = canvas.toDataURL('image/jpeg', 0.9);
     img.alt = 'ドリル写真';
     photoContainer.appendChild(img);
     showView('scanning');
 
-    // Process (stub: uses demo data)
+    // Grade (stub: uses demo data)
     const data = await OcrModule.analyzeWorksheetImage(null);
     const graded = Solver.gradeProblems(data.problems);
 
-    img.onload = () => {
-      setTimeout(() => {
-        scanView.classList.remove('active');
-        addMarkers(graded, cameraMarkerPositions);
-      }, 1500);
-    };
-    // If image already loaded
-    if (img.complete) {
-      setTimeout(() => {
-        scanView.classList.remove('active');
-        addMarkers(graded, cameraMarkerPositions);
-      }, 1500);
-    }
+    const go = () => setTimeout(() => {
+      scanView.classList.remove('active');
+      addMarkers(graded, cameraMarkerPositions);
+    }, 1500);
 
-    cameraInput.value = '';
-  });
+    if (img.complete) { go(); } else { img.onload = go; }
+  }
+
+  // Expose to inline onclick
+  window.App = { closeCamera, capturePhoto };
 
   // Reset
   function reset() {
