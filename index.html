@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ドリルチェッカー">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<title>ドリルチェッカー</title>
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --blue: #2563eb;
+  --green: #16a34a;
+  --red: #dc2626;
+  --grey: #9ca3af;
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --text: #1e293b;
+  --text-sub: #64748b;
+  --correct-blue: #2563eb;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  min-height: 100dvh;
+}
+
+body {
+  padding-bottom: calc(80px + var(--safe-bottom));
+}
+
+/* Header */
+.header {
+  background: var(--card);
+  text-align: center;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text);
+}
+
+.header .subtitle {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+/* Main content area */
+.main {
+  padding: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Welcome state */
+.welcome {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.welcome-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.welcome h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.welcome p {
+  font-size: 14px;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+
+/* Scanning overlay */
+.scan-overlay {
+  display: none;
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.scan-overlay.active {
+  display: block;
+}
+
+.scan-animation {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 20px;
+  border: 4px solid #e2e8f0;
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.scan-overlay p {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-sub);
+}
+
+/* Camera notice */
+.camera-notice {
+  display: none;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.camera-notice.active {
+  display: block;
+}
+
+.camera-notice p {
+  font-size: 14px;
+  color: var(--blue);
+  line-height: 1.5;
+}
+
+/* Results */
+.results {
+  display: none;
+}
+
+.results.active {
+  display: block;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.results-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.results-summary {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.result-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: opacity 0.2s;
+}
+
+.result-card.checked-by-eye {
+  opacity: 0.5;
+}
+
+.result-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  min-width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.result-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-problem {
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-answer {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.result-answer .student-ans {
+  font-weight: 500;
+}
+
+.result-answer .correct-ans {
+  color: var(--correct-blue);
+  font-weight: 600;
+}
+
+.result-mark {
+  font-size: 28px;
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.result-mark.correct {
+  color: var(--green);
+}
+
+.result-mark.wrong {
+  color: var(--red);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.result-mark.wrong:active {
+  background: #fef2f2;
+}
+
+.result-mark.dismissed {
+  color: var(--grey);
+  cursor: default;
+}
+
+/* Bottom bar */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px calc(12px + var(--safe-bottom));
+  z-index: 10;
+  max-width: 100%;
+  justify-content: center;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.1s, opacity 0.1s;
+  flex: 1;
+  max-width: 160px;
+}
+
+.btn:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+.btn-icon {
+  font-size: 20px;
+}
+
+.btn-camera {
+  background: var(--blue);
+  color: white;
+}
+
+.btn-demo {
+  background: #f1f5f9;
+  color: var(--text);
+}
+
+.btn-reset {
+  background: #f1f5f9;
+  color: var(--text-sub);
+}
+
+/* Hidden file input */
+#cameraInput {
+  display: none;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <h1>ドリルチェッカー</h1>
+  <div class="subtitle">さんすうまるつけ</div>
+</header>
+
+<main class="main">
+  <!-- Welcome state -->
+  <div class="welcome" id="welcomeView">
+    <div class="welcome-icon">📝</div>
+    <h2>ドリルをチェックしよう</h2>
+    <p>カメラでプリントを撮影するか、<br>デモモードで動作を確認できます。</p>
+  </div>
+
+  <!-- Scanning animation -->
+  <div class="scan-overlay" id="scanView">
+    <div class="scan-animation"></div>
+    <p>チェック中...</p>
+  </div>
+
+  <!-- Camera notice -->
+  <div class="camera-notice" id="cameraNotice">
+    <p>📷 OCR機能は準備中です。<br>デモデータで結果を表示します。</p>
+  </div>
+
+  <!-- Results list -->
+  <div class="results" id="resultsView">
+    <div class="results-header">
+      <h2>チェック結果</h2>
+      <span class="results-summary" id="resultsSummary"></span>
+    </div>
+    <div id="resultsList"></div>
+  </div>
+</main>
+
+<!-- Bottom sticky bar -->
+<nav class="bottom-bar">
+  <button class="btn btn-camera" id="btnCamera">
+    <span class="btn-icon">📷</span>カメラ
+  </button>
+  <button class="btn btn-demo" id="btnDemo">
+    <span class="btn-icon">▶️</span>デモ
+  </button>
+  <button class="btn btn-reset" id="btnReset">
+    <span class="btn-icon">↩️</span>リセット
+  </button>
+</nav>
+
+<input type="file" id="cameraInput" accept="image/*" capture="environment">
+
+<script>
+// ============================================================
+// OCR Module (stub)
+// ============================================================
+// This module isolates all OCR-related logic.
+// Currently returns hardcoded demo data.
+//
+// To integrate real OCR (e.g. GPT-4o Vision API):
+// 1. Replace the body of analyzeWorksheetImage() below
+// 2. Send the imageData (base64) to your API endpoint
+// 3. Parse the API response into the same { problems: [...] } format
+// 4. Each problem needs: { number, operand1, operator, operand2, studentAnswer }
+// ============================================================
+
+const OcrModule = (() => {
+  /**
+   * Analyze a worksheet image and extract problems + student answers.
+   * @param {string|null} imageData - Base64 image data (null for demo mode)
+   * @returns {Promise<{problems: Array}>} Parsed worksheet data
+   */
+  async function analyzeWorksheetImage(imageData) {
+    // -------------------------------------------------------
+    // TODO: Replace this hardcoded return with a real API call
+    // Example with GPT-4o Vision:
+    //
+    // const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Authorization': `Bearer ${API_KEY}`,
+    //     'Content-Type': 'application/json'
+    //   },
+    //   body: JSON.stringify({
+    //     model: 'gpt-4o',
+    //     messages: [{
+    //       role: 'user',
+    //       content: [
+    //         { type: 'text', text: 'Extract each arithmetic problem and the handwritten answer from this worksheet. Return JSON array.' },
+    //         { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageData}` } }
+    //       ]
+    //     }]
+    //   })
+    // });
+    // const data = await response.json();
+    // return parseOcrResponse(data);
+    // -------------------------------------------------------
+
+    return {
+      problems: [
+        { number: 9,  operand1: 765, operator: '-', operand2: 381, studentAnswer: 384 },
+        { number: 10, operand1: 765, operator: '-', operand2: 549, studentAnswer: 216 },
+        { number: 11, operand1: 924, operator: '-', operand2: 316, studentAnswer: 608 },
+        { number: 12, operand1: 924, operator: '-', operand2: 444, studentAnswer: 480 },
+        { number: 13, operand1: 438, operator: '-', operand2: 394, studentAnswer: 44 },
+        { number: 14, operand1: 438, operator: '-', operand2: 409, studentAnswer: 21 },
+        { number: 15, operand1: 809, operator: '-', operand2: 725, studentAnswer: 84 },
+        { number: 16, operand1: 391, operator: '-', operand2: 178, studentAnswer: 213 },
+      ]
+    };
+  }
+
+  return { analyzeWorksheetImage };
+})();
+
+
+// ============================================================
+// Solver Module
+// ============================================================
+// Computes correct answers. Easy to extend for new operation types.
+// ============================================================
+
+const Solver = (() => {
+  const operations = {
+    '+': (a, b) => a + b,
+    '-': (a, b) => a - b,
+    // Phase 2: uncomment to add multiplication
+    // '*': (a, b) => a * b,
+  };
+
+  function solve(operand1, operator, operand2) {
+    const fn = operations[operator];
+    if (!fn) throw new Error(`Unsupported operator: ${operator}`);
+    return fn(operand1, operand2);
+  }
+
+  /**
+   * Grade a list of problems.
+   * @param {Array} problems - From OcrModule
+   * @returns {Array} Problems with correctAnswer and isCorrect added
+   */
+  function gradeProblems(problems) {
+    return problems.map(p => {
+      const correctAnswer = solve(p.operand1, p.operator, p.operand2);
+      return {
+        ...p,
+        correctAnswer,
+        isCorrect: p.studentAnswer === correctAnswer,
+      };
+    });
+  }
+
+  return { gradeProblems };
+})();
+
+
+// ============================================================
+// UI Controller
+// ============================================================
+
+const App = (() => {
+  const welcomeView = document.getElementById('welcomeView');
+  const scanView = document.getElementById('scanView');
+  const cameraNotice = document.getElementById('cameraNotice');
+  const resultsView = document.getElementById('resultsView');
+  const resultsList = document.getElementById('resultsList');
+  const resultsSummary = document.getElementById('resultsSummary');
+
+  const btnCamera = document.getElementById('btnCamera');
+  const btnDemo = document.getElementById('btnDemo');
+  const btnReset = document.getElementById('btnReset');
+  const cameraInput = document.getElementById('cameraInput');
+
+  let currentResults = [];
+
+  function showView(view) {
+    welcomeView.style.display = 'none';
+    scanView.classList.remove('active');
+    cameraNotice.classList.remove('active');
+    resultsView.classList.remove('active');
+
+    if (view === 'welcome') welcomeView.style.display = '';
+    if (view === 'scanning') scanView.classList.add('active');
+    if (view === 'results') resultsView.classList.add('active');
+  }
+
+  function formatOperator(op) {
+    return op === '-' ? '−' : op === '*' ? '×' : op;
+  }
+
+  function renderResults(graded, showCameraNotice) {
+    currentResults = graded;
+    resultsList.innerHTML = '';
+
+    if (showCameraNotice) {
+      cameraNotice.classList.add('active');
+    }
+
+    const wrongCount = graded.filter(r => !r.isCorrect).length;
+    const total = graded.length;
+    resultsSummary.textContent = wrongCount === 0
+      ? `${total}問 全問正解！`
+      : `${total}問中 ${wrongCount}問まちがい`;
+
+    graded.forEach((r, idx) => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+
+      const answerDetail = r.isCorrect
+        ? `こたえ: <span class="student-ans">${r.studentAnswer}</span>`
+        : `こたえ: <span class="student-ans">${r.studentAnswer}</span> → <span class="correct-ans">${r.correctAnswer}</span>`;
+
+      card.innerHTML = `
+        <span class="result-num">(${r.number})</span>
+        <div class="result-body">
+          <div class="result-problem">${r.operand1} ${formatOperator(r.operator)} ${r.operand2}</div>
+          <div class="result-answer">${answerDetail}</div>
+        </div>
+        <div class="result-mark ${r.isCorrect ? 'correct' : 'wrong'}"
+             data-index="${idx}"
+             role="button"
+             aria-label="${r.isCorrect ? '正解' : 'まちがい。タップで確認済みにする'}">
+          ${r.isCorrect ? '✓' : '✗'}
+        </div>
+      `;
+
+      resultsList.appendChild(card);
+    });
+
+    showView('results');
+  }
+
+  // Tap ✗ to mark as "checked by eye"
+  resultsList.addEventListener('click', (e) => {
+    const mark = e.target.closest('.result-mark.wrong');
+    if (!mark || mark.classList.contains('dismissed')) return;
+
+    mark.classList.remove('wrong');
+    mark.classList.add('dismissed');
+    mark.closest('.result-card').classList.add('checked-by-eye');
+    mark.setAttribute('aria-label', '確認済み');
+  });
+
+  // Demo mode
+  async function runDemo() {
+    showView('scanning');
+    const data = await OcrModule.analyzeWorksheetImage(null);
+    const graded = Solver.gradeProblems(data.problems);
+
+    setTimeout(() => {
+      renderResults(graded, false);
+    }, 1500);
+  }
+
+  // Camera mode
+  function openCamera() {
+    cameraInput.click();
+  }
+
+  cameraInput.addEventListener('change', async (e) => {
+    if (!e.target.files || !e.target.files[0]) return;
+
+    showView('scanning');
+
+    // Read the captured image (for future OCR use)
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+
+      // Currently falls back to demo data
+      const data = await OcrModule.analyzeWorksheetImage(base64);
+      const graded = Solver.gradeProblems(data.problems);
+
+      setTimeout(() => {
+        renderResults(graded, true);
+      }, 1500);
+    };
+    reader.readAsDataURL(e.target.files[0]);
+
+    // Reset input so same file can be selected again
+    cameraInput.value = '';
+  });
+
+  // Reset
+  function reset() {
+    currentResults = [];
+    resultsList.innerHTML = '';
+    cameraNotice.classList.remove('active');
+    showView('welcome');
+  }
+
+  // Bind buttons
+  btnCamera.addEventListener('click', openCamera);
+  btnDemo.addEventListener('click', runDemo);
+  btnReset.addEventListener('click', reset);
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
