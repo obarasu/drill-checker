@@ -627,17 +627,28 @@ const App = (() => {
     }, 1500);
   }
 
-  // Hardcoded marker positions for camera mode (% of image)
+  // Default marker positions for 8-problem 2-column worksheet
   const cameraMarkerPositions = [
-    { x: 38, y: 26 },  // problem 9
-    { x: 38, y: 40 },  // problem 10
-    { x: 38, y: 54 },  // problem 11
-    { x: 38, y: 68 },  // problem 12
-    { x: 85, y: 26 },  // problem 13
-    { x: 85, y: 40 },  // problem 14
-    { x: 85, y: 54 },  // problem 15
-    { x: 85, y: 68 },  // problem 16
+    { x: 38, y: 24 }, { x: 38, y: 40 }, { x: 38, y: 56 }, { x: 38, y: 72 },
+    { x: 85, y: 24 }, { x: 85, y: 40 }, { x: 85, y: 56 }, { x: 85, y: 72 },
   ];
+
+  // Auto-generate 2-column marker positions for N problems
+  function autoMarkerPositions(n) {
+    const cols = 2;
+    const rows = Math.ceil(n / cols);
+    const yStart = 20, yEnd = 80;
+    const positions = [];
+    for (let i = 0; i < n; i++) {
+      const col = i < rows ? 0 : 1;
+      const row = i < rows ? i : i - rows;
+      const x = col === 0 ? 38 : 85;
+      const y = rows <= 1 ? (yStart + yEnd) / 2
+              : yStart + (row / (rows - 1)) * (yEnd - yStart);
+      positions.push({ x, y });
+    }
+    return positions;
+  }
 
   // Camera mode — getUserMedia (no iOS confirm dialog)
   let currentStream = null;
@@ -687,14 +698,46 @@ const App = (() => {
       photoContainer.appendChild(img);
       showView('scanning');
 
-      // Grade (stub: uses demo data)
-      const data = await OcrModule.analyzeWorksheetImage(null);
-      const graded = Solver.gradeProblems(data.problems);
+      // Try real Gemini OCR first; fall back to demo if API fails
+      const imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+      let graded = null;
+      let positions = cameraMarkerPositions;
+
+      try {
+        const apiRes = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64 })
+        });
+        if (apiRes.ok) {
+          const { problems } = await apiRes.json();
+          if (problems && problems.length > 0) {
+            // Map API response to graded format
+            graded = problems.map(p => ({
+              number: p.number,
+              operand1: p.operand1,
+              operator: p.operator || '-',
+              operand2: p.operand2,
+              studentAnswer: p.studentAnswer,
+              correctAnswer: p.correctAnswer,
+              isCorrect: p.isCorrect
+            }));
+            // Auto-generate marker positions for N problems in 2-column layout
+            positions = autoMarkerPositions(graded.length);
+          }
+        }
+      } catch (_) {}
+
+      // Fall back to demo if OCR failed
+      if (!graded) {
+        const data = await OcrModule.analyzeWorksheetImage(null);
+        graded = Solver.gradeProblems(data.problems);
+      }
 
       const go = () => setTimeout(() => {
         scanView.classList.remove('active');
-        addMarkers(graded, cameraMarkerPositions);
-      }, 1500);
+        addMarkers(graded, positions);
+      }, 1200);
 
       if (img.complete) { go(); } else { img.onload = go; }
     } catch(e) {
