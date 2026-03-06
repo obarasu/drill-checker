@@ -359,9 +359,9 @@ body {
 <!-- Camera live view (getUserMedia) -->
 <div id="cameraView" style="display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;">
   <video id="cameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
-  <div style="position:absolute;bottom:calc(24px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;justify-content:center;gap:24px;align-items:center;">
-    <button onclick="App.closeCamera()" style="background:rgba(255,255,255,0.2);border:2px solid white;color:white;border-radius:50%;width:52px;height:52px;font-size:22px;cursor:pointer;">✕</button>
-    <button id="btnShutter" onclick="App.capturePhoto()" style="background:white;border:4px solid rgba(255,255,255,0.6);border-radius:50%;width:72px;height:72px;cursor:pointer;box-shadow:0 0 0 3px rgba(0,0,0,0.3);"></button>
+  <div style="position:absolute;bottom:calc(32px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;justify-content:center;gap:32px;align-items:center;pointer-events:auto;">
+    <button id="btnCameraClose" style="background:rgba(255,255,255,0.2);border:2px solid white;color:white;border-radius:50%;width:60px;height:60px;font-size:24px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">✕</button>
+    <button id="btnShutter" style="background:white;border:6px solid rgba(255,255,255,0.7);border-radius:50%;width:80px;height:80px;cursor:pointer;box-shadow:0 0 0 4px rgba(0,0,0,0.4);-webkit-tap-highlight-color:transparent;touch-action:manipulation;"></button>
   </div>
 </div>
 
@@ -667,37 +667,44 @@ const App = (() => {
   }
 
   async function capturePhoto() {
-    // Capture frame from video to canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = cameraVideo.videoWidth;
-    canvas.height = cameraVideo.videoHeight;
-    canvas.getContext('2d').drawImage(cameraVideo, 0, 0);
+    try {
+      // Capture frame from video to canvas
+      const canvas = document.createElement('canvas');
+      const w = cameraVideo.videoWidth || cameraVideo.clientWidth || window.innerWidth;
+      const h = cameraVideo.videoHeight || cameraVideo.clientHeight || window.innerHeight;
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(cameraVideo, 0, 0, w, h);
 
-    // Close camera immediately — no confirmation needed
-    closeCamera();
+      // Close camera immediately — no confirmation needed
+      closeCamera();
 
-    // Show captured photo
-    photoContainer.innerHTML = '';
-    const img = document.createElement('img');
-    img.src = canvas.toDataURL('image/jpeg', 0.9);
-    img.alt = 'ドリル写真';
-    photoContainer.appendChild(img);
-    showView('scanning');
+      // Show captured photo
+      photoContainer.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = canvas.toDataURL('image/jpeg', 0.9);
+      img.alt = 'ドリル写真';
+      photoContainer.appendChild(img);
+      showView('scanning');
 
-    // Grade (stub: uses demo data)
-    const data = await OcrModule.analyzeWorksheetImage(null);
-    const graded = Solver.gradeProblems(data.problems);
+      // Grade (stub: uses demo data)
+      const data = await OcrModule.analyzeWorksheetImage(null);
+      const graded = Solver.gradeProblems(data.problems);
 
-    const go = () => setTimeout(() => {
-      scanView.classList.remove('active');
-      addMarkers(graded, cameraMarkerPositions);
-    }, 1500);
+      const go = () => setTimeout(() => {
+        scanView.classList.remove('active');
+        addMarkers(graded, cameraMarkerPositions);
+      }, 1500);
 
-    if (img.complete) { go(); } else { img.onload = go; }
+      if (img.complete) { go(); } else { img.onload = go; }
+    } catch(e) {
+      alert('エラー: ' + e.message);
+    }
   }
 
-  // Expose to inline onclick
-  window.App = { closeCamera, capturePhoto };
+  // Wire up camera buttons via addEventListener (more reliable than inline onclick)
+  document.getElementById('btnCameraClose').addEventListener('click', closeCamera);
+  document.getElementById('btnShutter').addEventListener('click', capturePhoto);
 
   // Reset
   function reset() {
