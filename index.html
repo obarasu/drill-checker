@@ -359,9 +359,12 @@ body {
 <!-- Camera live view (getUserMedia) -->
 <div id="cameraView" style="display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;">
   <video id="cameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
-  <div style="position:absolute;bottom:calc(32px + env(safe-area-inset-bottom,0px));left:0;right:0;display:flex;justify-content:center;gap:32px;align-items:center;pointer-events:auto;">
-    <button id="btnCameraClose" style="background:rgba(255,255,255,0.2);border:2px solid white;color:white;border-radius:50%;width:60px;height:60px;font-size:24px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">✕</button>
-    <button id="btnShutter" style="background:white;border:6px solid rgba(255,255,255,0.7);border-radius:50%;width:80px;height:80px;cursor:pointer;box-shadow:0 0 0 4px rgba(0,0,0,0.4);-webkit-tap-highlight-color:transparent;touch-action:manipulation;"></button>
+  <!-- Dark mask at bottom: makes it clear this area won't be captured -->
+  <div id="cameraMask" style="position:absolute;bottom:0;left:0;right:0;height:160px;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+    <div style="display:flex;justify-content:center;gap:32px;align-items:center;pointer-events:auto;">
+      <button id="btnCameraClose" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.6);color:white;border-radius:50%;width:60px;height:60px;font-size:24px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">✕</button>
+      <button id="btnShutter" style="background:white;border:6px solid rgba(255,255,255,0.7);border-radius:50%;width:80px;height:80px;cursor:pointer;box-shadow:0 0 0 4px rgba(0,0,0,0.4);-webkit-tap-highlight-color:transparent;touch-action:manipulation;"></button>
+    </div>
   </div>
 </div>
 
@@ -634,15 +637,16 @@ const App = (() => {
   ];
 
   // Auto-generate 2-column marker positions for N problems
+  // yStart/yEnd tuned for typical drill sheet: header takes top ~22%, answers start ~28%
   function autoMarkerPositions(n) {
     const cols = 2;
     const rows = Math.ceil(n / cols);
-    const yStart = 20, yEnd = 80;
+    const yStart = 30, yEnd = 88;
     const positions = [];
     for (let i = 0; i < n; i++) {
       const col = i < rows ? 0 : 1;
       const row = i < rows ? i : i - rows;
-      const x = col === 0 ? 38 : 85;
+      const x = col === 0 ? 36 : 82;
       const y = rows <= 1 ? (yStart + yEnd) / 2
               : yStart + (row / (rows - 1)) * (yEnd - yStart);
       positions.push({ x, y });
@@ -679,13 +683,13 @@ const App = (() => {
 
   async function capturePhoto() {
     try {
-      // Capture frame from video to canvas
+      // Capture full video frame (Gemini can handle full image)
       const canvas = document.createElement('canvas');
-      const w = cameraVideo.videoWidth || cameraVideo.clientWidth || window.innerWidth;
-      const h = cameraVideo.videoHeight || cameraVideo.clientHeight || window.innerHeight;
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(cameraVideo, 0, 0, w, h);
+      const vw = cameraVideo.videoWidth || window.innerWidth;
+      const vh = cameraVideo.videoHeight || window.innerHeight;
+      canvas.width = vw;
+      canvas.height = vh;
+      canvas.getContext('2d').drawImage(cameraVideo, 0, 0, vw, vh);
 
       // Close camera immediately — no confirmation needed
       closeCamera();
