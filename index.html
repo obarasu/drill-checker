@@ -716,7 +716,6 @@ const App = (() => {
         if (apiRes.ok) {
           const { problems } = await apiRes.json();
           if (problems && problems.length > 0) {
-            // Map API response to graded format
             graded = problems.map(p => ({
               number: p.number,
               operand1: p.operand1,
@@ -726,8 +725,11 @@ const App = (() => {
               correctAnswer: p.correctAnswer,
               isCorrect: p.isCorrect
             }));
-            // Auto-generate marker positions for N problems in 2-column layout
-            positions = autoMarkerPositions(graded.length);
+            // Use Gemini-reported positions if available, else fallback to auto
+            const hasPositions = problems.every(p => p.answerX != null && p.answerY != null);
+            positions = hasPositions
+              ? problems.map(p => ({ x: p.answerX, y: p.answerY }))
+              : autoMarkerPositions(graded.length);
           }
         }
       } catch (_) {}
