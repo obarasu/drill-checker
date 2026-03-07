@@ -402,7 +402,7 @@ const App = (() => {
             const hasPos = problems.every(p => p.markerX != null && p.markerY != null);
             // Y correction: top of image needs more offset than bottom
             positions = hasPos
-              ? problems.map(p => ({ x: p.markerX, y: p.markerY + 3 * (1 - p.markerY / 100) }))
+              ? problems.map(p => ({ x: p.markerX + 5, y: p.markerY + 3 * (1 - p.markerY / 100) }))
               : fallbackPositions(graded.length);
           } else {
             error = '問題を読み取れませんでした';
