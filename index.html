@@ -398,11 +398,13 @@ const App = (() => {
               operator: p.operator || '-', operand2: p.operand2,
               studentAnswer: p.studentAnswer
             })));
-            // Use Gemini positions
-            const hasPos = problems.every(p => p.markerX != null && p.markerY != null);
-            // Y correction: top of image needs more offset than bottom
-            positions = hasPos
-              ? problems.map(p => ({ x: p.markerX + 5, y: p.markerY + 3 * (1 - p.markerY / 100) }))
+            // Use bounding box: place marker to the right of answer, vertically centered
+            const hasBox = problems.every(p => p.answerBox && p.answerBox.length === 4);
+            positions = hasBox
+              ? problems.map(p => {
+                  const [yMin, xMin, yMax, xMax] = p.answerBox;
+                  return { x: (xMax / 1000) * 100 + 3, y: ((yMin + yMax) / 2 / 1000) * 100 };
+                })
               : fallbackPositions(graded.length);
           } else {
             error = '問題を読み取れませんでした';

@@ -21,7 +21,7 @@ For each problem:
 1. Read the problem number in parentheses, e.g. (9) → 9
 2. Read the printed equation: top number, operator (+, -, ×, ÷), bottom number
 3. Read the student's HANDWRITTEN answer below the horizontal line. Read each digit carefully.
-4. Find the position to place a small grading mark. The mark should go just to the RIGHT of the last digit of operand2 (the bottom number of the equation). Report this as markerX (% from left edge of image) and markerY (% from top edge of image).
+4. Find the bounding box of the student's handwritten answer. Return it as [y_min, x_min, y_max, x_max] with coordinates normalized to 0-1000 (where 0,0 is top-left and 1000,1000 is bottom-right of the image).
 
 Return a JSON array:
 [
@@ -31,15 +31,14 @@ Return a JSON array:
     "operator": "-",
     "operand2": 276,
     "studentAnswer": 147,
-    "markerX": 35,
-    "markerY": 28
+    "answerBox": [250, 150, 300, 350]
   }
 ]
 
 IMPORTANT:
 - Do NOT calculate correct answers. Only read what is written.
 - "studentAnswer" = exactly what the student wrote in handwriting below the line.
-- markerX/markerY = position just to the RIGHT of the LAST DIGIT of operand2 (the second number in the equation). This is where a teacher would place a grading mark.
+- "answerBox" = [y_min, x_min, y_max, x_max] bounding box of the handwritten answer, normalized to 0-1000.
 - If a digit is ambiguous, make your best guess.
 - If completely unreadable, set studentAnswer to null.
 - "operator": use "+", "-", "×", "÷"
