@@ -6,35 +6,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ドリルチェッカー">
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
 <title>ドリルチェッカー</title>
 <style>
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --blue: #2563eb;
   --green: #16a34a;
   --red: #dc2626;
-  --grey: #9ca3af;
+  --blue: #2563eb;
   --bg: #f8fafc;
   --card: #ffffff;
   --text: #1e293b;
   --text-sub: #64748b;
-  --correct-blue: #2563eb;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html, body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
-  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+  background: #000;
   color: var(--text);
   -webkit-text-size-adjust: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -44,24 +39,7 @@ body {
   height: 100dvh;
 }
 
-/* Header */
-.header {
-  background: var(--card);
-  text-align: center;
-  padding: 8px 16px;
-  border-bottom: 1px solid #e2e8f0;
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.header h1 {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--text);
-}
-
-/* Main content area */
+/* Main area */
 .main {
   flex: 1;
   display: flex;
@@ -70,27 +48,77 @@ body {
   justify-content: center;
   overflow: hidden;
   position: relative;
+  background: var(--bg);
 }
 
-/* Welcome state */
 .welcome {
   text-align: center;
   padding: 40px 20px;
 }
+.welcome h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.welcome p { font-size: 14px; color: var(--text-sub); line-height: 1.6; }
 
-.welcome h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
+/* Photo view — scrollable, full width image */
+.photo-view {
+  display: none;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #000;
+}
+.photo-view.active { display: block; }
+
+.photo-container {
+  position: relative;
+  width: 100%;
+}
+.photo-container img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.welcome p {
-  font-size: 14px;
-  color: var(--text-sub);
-  line-height: 1.6;
+/* Markers */
+.marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  animation: pop 0.25s ease-out both;
+}
+@keyframes pop {
+  0% { transform: translate(-50%, -50%) scale(0); }
+  70% { transform: translate(-50%, -50%) scale(1.2); }
+  100% { transform: translate(-50%, -50%) scale(1); }
 }
 
-/* Scanning overlay */
+.marker-maru {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--red);
+  border-radius: 50%;
+}
+
+.marker-batsu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.marker-batsu .x-mark {
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+.marker-batsu .correct-val {
+  color: var(--blue);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 4px rgba(255,255,255,0.9);
+}
+
+/* Scan overlay */
 .scan-overlay {
   display: none;
   position: absolute;
@@ -101,27 +129,19 @@ body {
   align-items: center;
   justify-content: center;
 }
-
-.scan-overlay.active {
-  display: flex;
-}
-
+.scan-overlay.active { display: flex; }
 .scan-line {
   position: absolute;
-  left: 5%;
-  right: 5%;
+  left: 5%; right: 5%;
   height: 3px;
   background: var(--blue);
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
-  animation: scanDown 1.5s ease-in-out;
-  top: 0;
+  box-shadow: 0 0 12px rgba(37,99,235,0.6);
+  animation: scanDown 1.2s ease-in-out infinite;
 }
-
 @keyframes scanDown {
   0%   { top: 5%; opacity: 1; }
   100% { top: 90%; opacity: 0.3; }
 }
-
 .scan-label {
   font-size: 16px;
   font-weight: 600;
@@ -129,130 +149,23 @@ body {
   text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
-/* Photo viewer with markers */
-.photo-view {
-  display: none;
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.photo-view.active {
-  display: block;
-}
-
-.photo-container {
-  position: relative;
-  width: 100%;
-  min-height: 100%;
-}
-
-.photo-container img,
-.photo-container canvas {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* Marker overlay */
-.marker {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-  z-index: 2;
-  animation: markerPop 0.3s ease-out both;
-}
-
-@keyframes markerPop {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
-  70% { transform: translate(-50%, -50%) scale(1.15); }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-}
-
-.marker-circle {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.marker-correct .marker-circle {
-  color: var(--green);
-  text-shadow: 0 0 8px rgba(22, 163, 74, 0.4);
-}
-
-/* Draw a circle (maru) for correct */
-.marker-correct .marker-circle::before {
-  content: '';
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--green);
-  border-radius: 50%;
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.3);
-}
-
-.marker-wrong .marker-circle {
-  color: var(--red);
-  font-size: 32px;
-  text-shadow: 0 0 8px rgba(220, 38, 38, 0.4);
-}
-
-/* Correction badge */
-.correction-badge {
-  position: absolute;
-  top: -8px;
-  left: 36px;
-  background: var(--correct-blue);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
-  white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
-}
-
-/* Legend bar */
-.legend-bar {
+/* Summary bar */
+.summary-bar {
   display: none;
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
+  z-index: 3;
   background: rgba(255,255,255,0.92);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 500;
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  font-size: 15px;
+  font-weight: 600;
   text-align: center;
-  z-index: 3;
-  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
 }
-
-.legend-bar.active {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.legend-correct { color: var(--green); }
-.legend-wrong { color: var(--red); }
-.legend-total { color: var(--text-sub); }
+.summary-bar.active { display: block; }
 
 /* Bottom bar */
 .bottom-bar {
@@ -265,304 +178,95 @@ body {
   z-index: 10;
   justify-content: center;
 }
-
 .btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 44px;
-  padding: 0 18px;
+  height: 48px;
+  padding: 0 24px;
   border: none;
-  border-radius: 12px;
-  font-size: 15px;
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.1s, opacity 0.1s;
   flex: 1;
-  max-width: 140px;
+  max-width: 240px;
 }
-
-.btn:active {
-  transform: scale(0.97);
-  opacity: 0.9;
-}
-
-.btn-icon {
-  font-size: 18px;
-}
-
-.btn-camera {
-  background: var(--blue);
-  color: white;
-}
-
-.btn-demo {
-  background: #f1f5f9;
-  color: var(--text);
-}
-
-.btn-reset {
-  background: #f1f5f9;
-  color: var(--text-sub);
-}
-
-/* Hidden file input */
-#cameraInput {
-  display: none;
-}
+.btn:active { transform: scale(0.97); opacity: 0.9; }
+.btn-primary { background: var(--blue); color: white; }
 </style>
 </head>
 <body>
 
-<header class="header">
-  <h1>ドリルチェッカー</h1>
-</header>
-
 <main class="main" id="mainArea">
-  <!-- Welcome state -->
   <div class="welcome" id="welcomeView">
     <h2>ドリルをチェックしよう</h2>
-    <p>カメラでプリントを撮影するか、<br>デモモードで動作を確認できます。</p>
+    <p>カメラでドリルを撮影すると<br>自動でまるつけします</p>
   </div>
 
-  <!-- Photo view with overlay markers -->
   <div class="photo-view" id="photoView">
+    <div class="summary-bar" id="summaryBar"></div>
     <div class="photo-container" id="photoContainer"></div>
-    <div class="legend-bar" id="legendBar">
-      <span class="legend-item legend-total" id="legendTotal"></span>
-      <span class="legend-item legend-wrong" id="legendWrong"></span>
-    </div>
   </div>
 
-  <!-- Scanning overlay -->
   <div class="scan-overlay" id="scanView">
     <div class="scan-line"></div>
     <span class="scan-label">チェック中...</span>
   </div>
 </main>
 
-<!-- Bottom sticky bar -->
 <nav class="bottom-bar">
-  <button class="btn btn-camera" id="btnCamera">
-    <span class="btn-icon">📷</span>カメラ
-  </button>
-  <button class="btn btn-demo" id="btnDemo">
-    <span class="btn-icon">▶</span>デモ
-  </button>
-  <button class="btn btn-reset" id="btnReset">
-    <span class="btn-icon">↩</span>リセット
-  </button>
+  <button class="btn btn-primary" id="btnCamera">📷 カメラ</button>
+  <button class="btn btn-primary" id="btnRetry" style="display:none;">↩ もういちど</button>
 </nav>
 
-<!-- Camera live view (getUserMedia) -->
+<!-- Camera -->
 <div id="cameraView" style="display:none;position:fixed;inset:0;z-index:100;background:#000;flex-direction:column;align-items:center;justify-content:center;">
   <video id="cameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
-  <!-- Dark mask at bottom: makes it clear this area won't be captured -->
-  <div id="cameraMask" style="position:absolute;bottom:0;left:0;right:0;height:160px;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-    <div style="display:flex;justify-content:center;gap:32px;align-items:center;pointer-events:auto;">
-      <button id="btnCameraClose" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.6);color:white;border-radius:50%;width:60px;height:60px;font-size:24px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">✕</button>
-      <button id="btnShutter" style="background:white;border:6px solid rgba(255,255,255,0.7);border-radius:50%;width:80px;height:80px;cursor:pointer;box-shadow:0 0 0 4px rgba(0,0,0,0.4);-webkit-tap-highlight-color:transparent;touch-action:manipulation;"></button>
-    </div>
+  <div style="position:absolute;bottom:0;left:0;right:0;height:160px;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;gap:32px;">
+    <button id="btnCameraClose" style="background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.6);color:white;border-radius:50%;width:60px;height:60px;font-size:24px;cursor:pointer;touch-action:manipulation;">✕</button>
+    <button id="btnShutter" style="background:white;border:6px solid rgba(255,255,255,0.7);border-radius:50%;width:80px;height:80px;cursor:pointer;box-shadow:0 0 0 4px rgba(0,0,0,0.4);touch-action:manipulation;"></button>
   </div>
 </div>
 
 <script>
-// ============================================================
-// OCR Module (stub)
-// ============================================================
-const OcrModule = (() => {
-  async function analyzeWorksheetImage(imageData) {
-    // TODO: Replace with real OCR (GPT-4o Vision API)
-    return {
-      problems: [
-        { number: 9,  operand1: 765, operator: '-', operand2: 381, studentAnswer: 384 },
-        { number: 10, operand1: 765, operator: '-', operand2: 549, studentAnswer: 216 },
-        { number: 11, operand1: 924, operator: '-', operand2: 316, studentAnswer: 608 },
-        { number: 12, operand1: 924, operator: '-', operand2: 444, studentAnswer: 480 },
-        { number: 13, operand1: 438, operator: '-', operand2: 394, studentAnswer: 44 },
-        { number: 14, operand1: 438, operator: '-', operand2: 409, studentAnswer: 21 },  // wrong: correct=29
-        { number: 15, operand1: 809, operator: '-', operand2: 725, studentAnswer: 84 },
-        { number: 16, operand1: 391, operator: '-', operand2: 178, studentAnswer: 213 },
-      ]
-    };
-  }
-
-  return { analyzeWorksheetImage };
-})();
-
-
-// ============================================================
-// Solver Module
-// ============================================================
 const Solver = (() => {
-  const operations = {
-    '+': (a, b) => a + b,
-    '-': (a, b) => a - b,
+  const ops = {
+    '+': (a, b) => a + b, '-': (a, b) => a - b,
+    '×': (a, b) => a * b, '÷': (a, b) => Math.floor(a / b),
   };
-
-  function gradeProblems(problems) {
+  function grade(problems) {
     return problems.map(p => {
-      const correctAnswer = operations[p.operator](p.operand1, p.operand2);
-      return { ...p, correctAnswer, isCorrect: p.studentAnswer === correctAnswer };
+      const correct = ops[p.operator](p.operand1, p.operand2);
+      return { ...p, correctAnswer: correct, isCorrect: p.studentAnswer === correct };
     });
   }
-
-  return { gradeProblems };
+  return { grade };
 })();
 
-
-// ============================================================
-// Worksheet Generator (draws a realistic-looking drill sheet)
-// ============================================================
-const WorksheetGen = (() => {
-  function draw(problems, containerWidth) {
-    const dpr = window.devicePixelRatio || 1;
-    // Worksheet aspect: portrait A4-ish
-    const w = containerWidth;
-    const h = Math.round(w * 1.35);
-    const canvas = document.createElement('canvas');
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-
-    // Background: slightly off-white with subtle grid
-    ctx.fillStyle = '#faf9f6';
-    ctx.fillRect(0, 0, w, h);
-
-    // Faint grid lines
-    ctx.strokeStyle = '#e8e6e0';
-    ctx.lineWidth = 0.5;
-    const gridSize = 20;
-    for (let x = 0; x < w; x += gridSize) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    }
-    for (let y = 0; y < h; y += gridSize) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-
-    // Title area
-    ctx.fillStyle = '#333';
-    ctx.font = `bold ${Math.round(w * 0.045)}px 'Hiragino Sans', sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText('ひきざん (3けた)', w / 2, h * 0.055);
-
-    ctx.font = `${Math.round(w * 0.03)}px 'Hiragino Sans', sans-serif`;
-    ctx.fillStyle = '#888';
-    ctx.fillText('名前：＿＿＿＿＿＿', w * 0.78, h * 0.055);
-
-    // Divider line
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(w * 0.05, h * 0.08);
-    ctx.lineTo(w * 0.95, h * 0.08);
-    ctx.stroke();
-
-    // 2 columns, 4 rows
-    const cols = 2;
-    const rows = 4;
-    const colW = w * 0.42;
-    const startX = [w * 0.07, w * 0.54];
-    const startY = h * 0.12;
-    const rowH = h * 0.19;
-
-    // Marker positions as % of canvas (for overlay)
-    const markerPositions = [];
-
-    ctx.textAlign = 'left';
-
-    problems.forEach((p, i) => {
-      const col = i < rows ? 0 : 1;
-      const row = i < rows ? i : i - rows;
-      const x = startX[col];
-      const y = startY + row * rowH;
-
-      const numFont = Math.round(w * 0.034);
-      const probFont = Math.round(w * 0.055);
-      const ansFont = Math.round(w * 0.055);
-
-      // Problem number label
-      ctx.fillStyle = '#666';
-      ctx.font = `${numFont}px 'Hiragino Sans', sans-serif`;
-      ctx.fillText(`(${p.number})`, x, y + probFont * 0.3);
-
-      // Operand 1 (right-aligned in a box area)
-      const boxX = x + w * 0.06;
-      const digitW = w * 0.035;
-
-      ctx.fillStyle = '#222';
-      ctx.font = `${probFont}px 'Hiragino Sans', sans-serif`;
-      ctx.textAlign = 'right';
-
-      const op1Str = String(p.operand1);
-      ctx.fillText(op1Str, boxX + digitW * 4.5, y + probFont * 0.3);
-
-      // Operator + operand 2
-      ctx.textAlign = 'left';
-      ctx.fillText('−', boxX + digitW * 0.2, y + probFont * 1.5);
-      ctx.textAlign = 'right';
-      ctx.fillText(String(p.operand2), boxX + digitW * 4.5, y + probFont * 1.5);
-
-      // Answer line
-      ctx.strokeStyle = '#999';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(boxX + digitW * 0.2, y + probFont * 1.85);
-      ctx.lineTo(boxX + digitW * 5, y + probFont * 1.85);
-      ctx.stroke();
-
-      // Student's "handwritten" answer (slightly offset, blue-ish pencil)
-      ctx.fillStyle = '#3355aa';
-      ctx.font = `italic ${ansFont}px 'Hiragino Sans', sans-serif`;
-      ctx.textAlign = 'right';
-      const ansY = y + probFont * 2.75;
-      ctx.fillText(String(p.studentAnswer), boxX + digitW * 4.5 + 2, ansY);
-
-      // Record marker position as % of canvas size
-      // Position marker to the right of the answer
-      const markerXpct = ((boxX + digitW * 5.8) / w) * 100;
-      const markerYpct = ((ansY - probFont * 0.3) / h) * 100;
-      markerPositions.push({ x: markerXpct, y: markerYpct });
-
-      ctx.textAlign = 'left';
-    });
-
-    return { canvas, markerPositions, width: w, height: h };
-  }
-
-  return { draw };
-})();
-
-
-// ============================================================
-// UI Controller
-// ============================================================
 const App = (() => {
-  const welcomeView = document.getElementById('welcomeView');
-  const photoView = document.getElementById('photoView');
-  const photoContainer = document.getElementById('photoContainer');
-  const scanView = document.getElementById('scanView');
-  const legendBar = document.getElementById('legendBar');
-  const legendTotal = document.getElementById('legendTotal');
-  const legendWrong = document.getElementById('legendWrong');
-  const mainArea = document.getElementById('mainArea');
+  const $ = id => document.getElementById(id);
+  const welcomeView = $('welcomeView');
+  const photoView = $('photoView');
+  const photoContainer = $('photoContainer');
+  const scanView = $('scanView');
+  const summaryBar = $('summaryBar');
+  const btnCamera = $('btnCamera');
+  const btnRetry = $('btnRetry');
 
-  const btnCamera = document.getElementById('btnCamera');
-  const btnDemo = document.getElementById('btnDemo');
-  const btnReset = document.getElementById('btnReset');
-  const cameraInput = document.getElementById('cameraInput');
+  function showButtons(mode) {
+    btnCamera.style.display = mode === 'camera' ? '' : 'none';
+    btnRetry.style.display = mode === 'retry' ? '' : 'none';
+  }
 
   function showView(view) {
     welcomeView.style.display = 'none';
     photoView.classList.remove('active');
     scanView.classList.remove('active');
-    legendBar.classList.remove('active');
-
+    summaryBar.classList.remove('active');
     if (view === 'welcome') welcomeView.style.display = '';
     if (view === 'photo') photoView.classList.add('active');
     if (view === 'scanning') {
@@ -571,220 +275,181 @@ const App = (() => {
     }
   }
 
-  function clearMarkers() {
+  function addMarkers(graded, positions) {
+    // Remove old markers
     photoContainer.querySelectorAll('.marker').forEach(m => m.remove());
-  }
-
-  function addMarkers(graded, markerPositions) {
-    clearMarkers();
-
-    const wrongCount = graded.filter(r => !r.isCorrect).length;
-    legendTotal.textContent = `${graded.length}問中`;
-    if (wrongCount === 0) {
-      legendWrong.textContent = '全問正解!';
-      legendWrong.style.color = 'var(--green)';
-    } else {
-      legendWrong.textContent = `${wrongCount}問まちがい`;
-      legendWrong.style.color = 'var(--red)';
-    }
-    legendBar.classList.add('active');
 
     graded.forEach((r, i) => {
-      const pos = markerPositions[i];
+      const pos = positions[i];
       if (!pos) return;
 
       const marker = document.createElement('div');
-      marker.className = `marker ${r.isCorrect ? 'marker-correct' : 'marker-wrong'}`;
+      marker.className = 'marker';
       marker.style.left = pos.x + '%';
       marker.style.top = pos.y + '%';
-      marker.style.animationDelay = (i * 0.08) + 's';
+      marker.style.animationDelay = (i * 0.06) + 's';
 
-      let inner = `<div class="marker-circle">${r.isCorrect ? '' : '✗'}</div>`;
-      if (!r.isCorrect) {
-        inner += `<div class="correction-badge">${r.correctAnswer}</div>`;
+      if (r.isCorrect) {
+        marker.innerHTML = '<div class="marker-maru"></div>';
+      } else {
+        marker.innerHTML = `<div class="marker-batsu"><span class="x-mark">✓</span><span class="correct-val">${r.correctAnswer}</span></div>`;
       }
-      marker.innerHTML = inner;
 
       photoContainer.appendChild(marker);
     });
-  }
 
-  // Demo mode with generated worksheet
-  async function runDemo() {
-    const containerW = mainArea.clientWidth;
-
-    // Generate worksheet
-    const data = await OcrModule.analyzeWorksheetImage(null);
-    const graded = Solver.gradeProblems(data.problems);
-    const sheet = WorksheetGen.draw(data.problems, containerW);
-
-    // Show worksheet image
-    photoContainer.innerHTML = '';
-    photoContainer.appendChild(sheet.canvas);
-    showView('scanning');
-
-    // After scan animation, show markers
-    setTimeout(() => {
-      scanView.classList.remove('active');
-      addMarkers(graded, sheet.markerPositions);
-    }, 1500);
-  }
-
-  // Default marker positions for 8-problem 2-column worksheet
-  const cameraMarkerPositions = [
-    { x: 38, y: 24 }, { x: 38, y: 40 }, { x: 38, y: 56 }, { x: 38, y: 72 },
-    { x: 85, y: 24 }, { x: 85, y: 40 }, { x: 85, y: 56 }, { x: 85, y: 72 },
-  ];
-
-  // Auto-generate 2-column marker positions for N problems
-  // yStart/yEnd tuned for typical drill sheet: header takes top ~22%, answers start ~28%
-  function autoMarkerPositions(n) {
-    const cols = 2;
-    const rows = Math.ceil(n / cols);
-    const yStart = 30, yEnd = 88;
-    const positions = [];
-    for (let i = 0; i < n; i++) {
-      const col = i < rows ? 0 : 1;
-      const row = i < rows ? i : i - rows;
-      const x = col === 0 ? 36 : 82;
-      const y = rows <= 1 ? (yStart + yEnd) / 2
-              : yStart + (row / (rows - 1)) * (yEnd - yStart);
-      positions.push({ x, y });
+    // Summary
+    const wrong = graded.filter(r => !r.isCorrect).length;
+    if (wrong === 0) {
+      summaryBar.innerHTML = `<span style="color:var(--green)">全問正解! (${graded.length}問)</span>`;
+    } else {
+      summaryBar.innerHTML = `<span>${graded.length}問中 </span><span style="color:var(--red)">${wrong}問まちがい</span>`;
     }
-    return positions;
+    summaryBar.classList.add('active');
   }
 
-  // Camera mode — getUserMedia (no iOS confirm dialog)
-  let currentStream = null;
-  const cameraView = document.getElementById('cameraView');
-  const cameraVideo = document.getElementById('cameraVideo');
+  // Camera
+  let stream = null;
+  const cameraView = $('cameraView');
+  const video = $('cameraVideo');
 
   async function openCamera() {
     try {
-      currentStream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false
       });
-      cameraVideo.srcObject = currentStream;
+      video.srcObject = stream;
       cameraView.style.display = 'flex';
-    } catch (err) {
-      alert('カメラを開けませんでした。カメラの許可を確認してください。');
-    }
+    } catch { alert('カメラを開けませんでした'); }
   }
 
   function closeCamera() {
-    if (currentStream) {
-      currentStream.getTracks().forEach(t => t.stop());
-      currentStream = null;
-    }
-    cameraVideo.srcObject = null;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.srcObject = null;
     cameraView.style.display = 'none';
   }
 
-  async function capturePhoto() {
+  async function capture() {
     try {
-      // Capture full video frame (Gemini can handle full image)
-      const canvas = document.createElement('canvas');
-      const vw = cameraVideo.videoWidth || window.innerWidth;
-      const vh = cameraVideo.videoHeight || window.innerHeight;
-      canvas.width = vw;
-      canvas.height = vh;
-      canvas.getContext('2d').drawImage(cameraVideo, 0, 0, vw, vh);
+      // Calculate visible area: video is object-fit:cover, bottom 160px is masked
+      const vw = video.videoWidth || 1080;
+      const vh = video.videoHeight || 1920;
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const maskH = 160;
+      const visibleH = screenH - maskH;
 
-      // Close camera immediately — no confirmation needed
+      // object-fit: cover scaling
+      const scale = Math.max(screenW / vw, screenH / vh);
+      const dispW = vw * scale;
+      const dispH = vh * scale;
+      const offX = (dispW - screenW) / 2;
+      const offY = (dispH - screenH) / 2;
+
+      // Visible rect in video coordinates
+      const sx = offX / scale;
+      const sy = offY / scale;
+      const sw = screenW / scale;
+      const sh = visibleH / scale;
+
+      const c = document.createElement('canvas');
+      c.width = Math.round(sw);
+      c.height = Math.round(sh);
+      c.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, c.width, c.height);
       closeCamera();
 
-      // Show captured photo
+      // Show photo
       photoContainer.innerHTML = '';
       const img = document.createElement('img');
-      img.src = canvas.toDataURL('image/jpeg', 0.9);
-      img.alt = 'ドリル写真';
+      img.src = c.toDataURL('image/jpeg', 0.9);
       photoContainer.appendChild(img);
       showView('scanning');
 
-      // Scale down for API (Vercel 4.5MB limit; iPhone photos can be 10MB+)
-      const MAX_API_PX = 1200;
-      let imageBase64;
-      if (vw > MAX_API_PX) {
-        const scale = MAX_API_PX / vw;
-        const small = document.createElement('canvas');
-        small.width = MAX_API_PX;
-        small.height = Math.round(vh * scale);
-        small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
-        imageBase64 = small.toDataURL('image/jpeg', 0.80);
+      // Scale down for API
+      const MAX = 1200;
+      let b64;
+      if (c.width > MAX) {
+        const rs = MAX / c.width;
+        const sm = document.createElement('canvas');
+        sm.width = MAX; sm.height = Math.round(c.height * rs);
+        sm.getContext('2d').drawImage(c, 0, 0, sm.width, sm.height);
+        b64 = sm.toDataURL('image/jpeg', 0.80);
       } else {
-        imageBase64 = canvas.toDataURL('image/jpeg', 0.80);
+        b64 = c.toDataURL('image/jpeg', 0.80);
       }
-      console.log('API image size (base64 chars):', imageBase64.length);
 
-      // Try real Gemini OCR first; fall back to demo if API fails
-      let graded = null;
-      let positions = cameraMarkerPositions;
-
+      // API call
+      let graded = null, positions = [], error = null;
       try {
-        const apiRes = await fetch('/api/analyze', {
+        const res = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64 })
+          body: JSON.stringify({ imageBase64: b64 })
         });
-        if (!apiRes.ok) {
-          const errBody = await apiRes.text();
-          console.error('API returned error', apiRes.status, errBody.slice(0, 200));
-        } else if (apiRes.ok) {
-          const { problems } = await apiRes.json();
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          error = [body.error, body.raw, body.parts].filter(Boolean).join('\n') || `API error ${res.status}`;
+        } else {
+          const { problems } = await res.json();
           if (problems && problems.length > 0) {
-            graded = problems.map(p => ({
-              number: p.number,
-              operand1: p.operand1,
-              operator: p.operator || '-',
-              operand2: p.operand2,
-              studentAnswer: p.studentAnswer,
-              correctAnswer: p.correctAnswer,
-              isCorrect: p.isCorrect
-            }));
-            // Use Gemini-reported positions if available, else fallback to auto
-            const hasPositions = problems.every(p => p.answerX != null && p.answerY != null);
-            positions = hasPositions
-              ? problems.map(p => ({ x: p.answerX, y: p.answerY }))
-              : autoMarkerPositions(graded.length);
+            graded = Solver.grade(problems.map(p => ({
+              number: p.number, operand1: p.operand1,
+              operator: p.operator || '-', operand2: p.operand2,
+              studentAnswer: p.studentAnswer
+            })));
+            // Use Gemini positions
+            const hasPos = problems.every(p => p.markerX != null && p.markerY != null);
+            // Y correction: top of image needs more offset than bottom
+            positions = hasPos
+              ? problems.map(p => ({ x: p.markerX, y: p.markerY + 3 * (1 - p.markerY / 100) }))
+              : fallbackPositions(graded.length);
+          } else {
+            error = '問題を読み取れませんでした';
           }
         }
-      } catch (apiErr) {
-        console.error('API error:', apiErr);
-      }
+      } catch (e) { error = e.message; }
 
-      // Fall back to demo if OCR failed
+      scanView.classList.remove('active');
+
       if (!graded) {
-        const data = await OcrModule.analyzeWorksheetImage(null);
-        graded = Solver.gradeProblems(data.problems);
+        alert(error || '読み取りに失敗しました。もう一度撮影してください。');
+        reset();
+        return;
       }
 
-      const go = () => setTimeout(() => {
-        scanView.classList.remove('active');
-        addMarkers(graded, positions);
-      }, 1200);
+      addMarkers(graded, positions);
+      showButtons('retry');
 
-      if (img.complete) { go(); } else { img.onload = go; }
-    } catch(e) {
-      alert('エラー: ' + e.message);
+    } catch(e) { alert('エラー: ' + e.message); }
+  }
+
+  // Fallback: 2-column grid positions
+  function fallbackPositions(n) {
+    const rows = Math.ceil(n / 2);
+    const pos = [];
+    for (let i = 0; i < n; i++) {
+      const col = i < rows ? 0 : 1;
+      const row = i < rows ? i : i - rows;
+      const x = col === 0 ? 38 : 78;
+      const yStart = 22, yEnd = 82;
+      const y = rows <= 1 ? 50 : yStart + (row / (rows - 1)) * (yEnd - yStart);
+      pos.push({ x, y });
     }
+    return pos;
   }
 
-  // Wire up camera buttons via addEventListener (more reliable than inline onclick)
-  document.getElementById('btnCameraClose').addEventListener('click', closeCamera);
-  document.getElementById('btnShutter').addEventListener('click', capturePhoto);
-
-  // Reset
   function reset() {
-    clearMarkers();
     photoContainer.innerHTML = '';
-    legendBar.classList.remove('active');
+    summaryBar.classList.remove('active');
     showView('welcome');
+    showButtons('camera');
   }
 
+  $('btnCameraClose').addEventListener('click', closeCamera);
+  $('btnShutter').addEventListener('click', capture);
   btnCamera.addEventListener('click', openCamera);
-  btnDemo.addEventListener('click', runDemo);
-  btnReset.addEventListener('click', reset);
+  btnRetry.addEventListener('click', () => { reset(); openCamera(); });
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
