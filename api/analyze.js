@@ -47,7 +47,7 @@ IMPORTANT:
 
   try {
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,7 +56,7 @@ IMPORTANT:
             { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } }
         })
       }
     );
