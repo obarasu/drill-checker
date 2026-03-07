@@ -14,42 +14,40 @@ module.exports = async function handler(req, res) {
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
-  const prompt = `You are grading a Japanese elementary school arithmetic worksheet photo.
+  const prompt = `You are reading a Japanese elementary school arithmetic worksheet photo.
+Your job is OCR only — read what is printed and handwritten. Do NOT calculate answers yourself.
 
-Find all arithmetic problems in the image. For each problem:
-1. Read the problem number in parentheses, e.g. (1) → 1
-2. Read the printed equation (top number, operator, bottom number)
-3. Find the student's handwritten answer below the horizontal line
-4. Calculate the correct answer yourself
-5. Estimate the CENTER position of the student's handwritten answer as a percentage of the image size (x% from left edge, y% from top edge)
+For each problem:
+1. Read the problem number in parentheses, e.g. (9) → 9
+2. Read the printed equation: top number, operator (+, -, ×, ÷), bottom number
+3. Read the student's HANDWRITTEN answer below the horizontal line. Read each digit carefully.
+4. Find the position to place a small grading mark. The mark should go just to the RIGHT of the last digit of operand2 (the bottom number of the equation). Report this as markerX (% from left edge of image) and markerY (% from top edge of image).
 
-Return ONLY a JSON array. No markdown, no explanation, just the array:
+Return a JSON array:
 [
   {
-    "number": 1,
-    "operand1": 562,
+    "number": 9,
+    "operand1": 423,
     "operator": "-",
-    "operand2": 121,
-    "correctAnswer": 441,
-    "studentAnswer": 441,
-    "isCorrect": true,
-    "answerX": 28,
-    "answerY": 35
-  },
-  ...
+    "operand2": 276,
+    "studentAnswer": 147,
+    "markerX": 35,
+    "markerY": 28
+  }
 ]
 
 IMPORTANT:
-- "answerX" and "answerY" are the position of the student's handwritten answer as % of image width/height
-- "correctAnswer" = your own calculation (double-check!)
-- "studentAnswer" = what the student actually wrote (read handwriting carefully)
-- If unreadable, set studentAnswer to null, isCorrect to false
-- Return ALL problems found
-- Return ONLY the JSON array, nothing else`;
+- Do NOT calculate correct answers. Only read what is written.
+- "studentAnswer" = exactly what the student wrote in handwriting below the line.
+- markerX/markerY = position just to the RIGHT of the LAST DIGIT of operand2 (the second number in the equation). This is where a teacher would place a grading mark.
+- If a digit is ambiguous, make your best guess.
+- If completely unreadable, set studentAnswer to null.
+- "operator": use "+", "-", "×", "÷"
+- Return ALL problems found, ordered by problem number.`;
 
   try {
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,7 +56,7 @@ IMPORTANT:
             { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 2048 }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096 }
         })
       }
     );
@@ -69,12 +67,25 @@ IMPORTANT:
     }
 
     const result = await resp.json();
-    const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Gemini 2.5 may return multiple parts (thinking + response). Concat all text parts.
+    const parts = result?.candidates?.[0]?.content?.parts || [];
+    const text = parts.map(p => p.text || '').join('\n');
 
-    const match = text.match(/\[[\s\S]*?\]/);
-    if (!match) return res.status(422).json({ error: 'No JSON in response', raw: text.slice(0, 300) });
+    if (!text.trim()) {
+      return res.status(422).json({ error: 'Empty response from Gemini', parts: JSON.stringify(parts).slice(0, 300) });
+    }
 
-    const problems = JSON.parse(match[0]);
+    // Extract JSON array from response text
+    let problems;
+    try {
+      const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+      problems = Array.isArray(parsed) ? parsed : (parsed.problems || parsed.data || []);
+    } catch {
+      const match = text.match(/\[[\s\S]*\]/);
+      if (!match) return res.status(422).json({ error: 'No JSON found', raw: text.slice(0, 500) });
+      problems = JSON.parse(match[0]);
+    }
     return res.status(200).json({ problems, source: 'gemini' });
 
   } catch (err) {
