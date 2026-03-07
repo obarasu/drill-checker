@@ -702,8 +702,22 @@ const App = (() => {
       photoContainer.appendChild(img);
       showView('scanning');
 
+      // Scale down for API (Vercel 4.5MB limit; iPhone photos can be 10MB+)
+      const MAX_API_PX = 1200;
+      let imageBase64;
+      if (vw > MAX_API_PX) {
+        const scale = MAX_API_PX / vw;
+        const small = document.createElement('canvas');
+        small.width = MAX_API_PX;
+        small.height = Math.round(vh * scale);
+        small.getContext('2d').drawImage(canvas, 0, 0, small.width, small.height);
+        imageBase64 = small.toDataURL('image/jpeg', 0.80);
+      } else {
+        imageBase64 = canvas.toDataURL('image/jpeg', 0.80);
+      }
+      console.log('API image size (base64 chars):', imageBase64.length);
+
       // Try real Gemini OCR first; fall back to demo if API fails
-      const imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
       let graded = null;
       let positions = cameraMarkerPositions;
 
@@ -713,7 +727,10 @@ const App = (() => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64 })
         });
-        if (apiRes.ok) {
+        if (!apiRes.ok) {
+          const errBody = await apiRes.text();
+          console.error('API returned error', apiRes.status, errBody.slice(0, 200));
+        } else if (apiRes.ok) {
           const { problems } = await apiRes.json();
           if (problems && problems.length > 0) {
             graded = problems.map(p => ({
@@ -732,7 +749,9 @@ const App = (() => {
               : autoMarkerPositions(graded.length);
           }
         }
-      } catch (_) {}
+      } catch (apiErr) {
+        console.error('API error:', apiErr);
+      }
 
       // Fall back to demo if OCR failed
       if (!graded) {
