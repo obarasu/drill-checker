@@ -389,7 +389,11 @@ const App = (() => {
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
-          error = [body.error, body.raw, body.parts].filter(Boolean).join('\n') || `API error ${res.status}`;
+          if (res.status === 422) {
+            error = 'このプリントの問題形式には対応していません。\nたし算・ひき算のプリントを撮影してください。';
+          } else {
+            error = '読み取りに失敗しました（エラー ' + res.status + '）';
+          }
         } else {
           const { problems } = await res.json();
           if (problems && problems.length > 0) {
