@@ -392,13 +392,25 @@ const App = (() => {
         } else {
           const { problems } = await res.json();
           if (problems && problems.length > 0) {
-            // Gemini grades directly — no need for local Solver
-            graded = problems.map(p => ({
-              number: p.number,
-              isCorrect: !!p.isCorrect,
-              correctAnswer: p.correctAnswer != null ? String(p.correctAnswer) : '',
-              studentAnswer: p.studentAnswer != null ? String(p.studentAnswer) : ''
-            }));
+            graded = problems.map(p => {
+              if (p.problemType === 'arithmetic') {
+                // Use local Solver for arithmetic — never trust AI with math
+                const solved = Solver.grade([{
+                  number: p.number, operand1: p.operand1,
+                  operator: p.operator || '-', operand2: p.operand2,
+                  studentAnswer: p.studentAnswer
+                }])[0];
+                return solved;
+              } else {
+                // Non-arithmetic: use Gemini's judgment (comparison, sequences, etc.)
+                return {
+                  number: p.number,
+                  isCorrect: !!p.isCorrect,
+                  correctAnswer: p.correctAnswer != null ? String(p.correctAnswer) : '',
+                  studentAnswer: p.studentAnswer != null ? String(p.studentAnswer) : ''
+                };
+              }
+            });
             const hasBox = problems.every(p => p.answerBox && p.answerBox.length === 4);
             positions = hasBox
               ? problems.map(p => {

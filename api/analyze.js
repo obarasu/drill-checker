@@ -14,49 +14,54 @@ module.exports = async function handler(req, res) {
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
-  const prompt = `You are grading a Japanese elementary school math worksheet.
+  const prompt = `You are reading a Japanese elementary school math worksheet photo.
+Your job is OCR only — read what is printed and handwritten. Do NOT judge correctness yourself.
 
-Read ALL problems on the worksheet and grade each one.
-Handle ANY problem type:
-- Arithmetic (addition, subtraction, multiplication, division) — vertical or horizontal format
+Detect the problem type and handle each accordingly:
+
+=== TYPE A: ARITHMETIC (vertical or horizontal equations) ===
+Problems with a printed equation (top number, operator, bottom number) and a handwritten answer.
+Operators: +, -, ×, ÷
+
+For each problem, return:
+{
+  "number": 9,
+  "problemType": "arithmetic",
+  "operand1": 423,
+  "operator": "-",
+  "operand2": 276,
+  "studentAnswer": 147,
+  "answerBox": [250, 150, 300, 350]
+}
+
+=== TYPE B: NON-ARITHMETIC ===
+Problems that cannot be verified by calculation:
+- Comparison: circle the larger number (大きい方を○で囲む)
+- Ordering: write numbers in order (大きい順に番号をかく)
+- Sequences: fill in the blank (□にあう数をかく)
 - Word problems (文章題)
-- Comparison (circle the larger number: 大きい方を○で囲む)
-- Ordering (write numbers in order: 大きい順に番号をかく)
-- Number sequences (fill in the blank: □にあう数をかく)
-- Any other math problem type
+- Any other type
 
-For each problem:
-1. Read the problem number (e.g. (1), (2), ...)
-2. Read the full printed problem
-3. Read the student's handwritten answer
-4. Calculate or determine the CORRECT answer yourself
-5. Check if the student's answer matches the correct answer
-6. Find the bounding box of the student's handwritten answer area
+For each problem/blank, return:
+{
+  "number": 1,
+  "problemType": "other",
+  "problemDescription": "Circle the larger: (40, 30)",
+  "correctAnswer": "40",
+  "studentAnswer": "40",
+  "isCorrect": true,
+  "answerBox": [150, 100, 200, 250]
+}
 
-Return a JSON array:
-[
-  {
-    "number": 1,
-    "type": "addition",
-    "correctAnswer": "327",
-    "studentAnswer": "327",
-    "isCorrect": true,
-    "answerBox": [250, 150, 300, 350]
-  }
-]
-
-IMPORTANT:
-- "number": the problem number as integer
-- "type": brief description in English (addition, subtraction, multiplication, division, comparison, ordering, sequence, word_problem, other)
-- "correctAnswer": the right answer as a string
-- "studentAnswer": exactly what the student wrote, as a string. If blank or unreadable, use ""
-- "isCorrect": true if student's answer is correct, false otherwise. Blank = false.
-- "answerBox": [y_min, x_min, y_max, x_max] bounding box of the student's written answer, normalized to 0-1000 (0,0 = top-left, 1000,1000 = bottom-right)
-- For comparison problems: check if the student circled the correct (larger) number
-- For ordering problems: check each numbered box individually
-- For sequences: check each blank individually — treat each blank as a separate problem entry
-- Return ALL problems/blanks found, ordered by problem number
-- If completely unreadable, still include the entry with isCorrect: false`;
+=== RULES ===
+- Return ALL problems found as a single JSON array (mix of Type A and B is fine)
+- "answerBox": [y_min, x_min, y_max, x_max] normalized to 0-1000 (0,0=top-left)
+- "studentAnswer": exactly what the student wrote. null if unreadable/blank.
+- For Type A: only read numbers, do NOT calculate the answer yourself.
+- For Type B: YOU determine isCorrect and correctAnswer.
+- For ordering problems: treat each numbered box as a separate entry.
+- For sequences: treat each blank as a separate entry.
+- Order results by problem number.`;
 
   try {
     const resp = await fetch(
@@ -87,7 +92,6 @@ IMPORTANT:
       return res.status(422).json({ error: 'Empty response from Gemini' });
     }
 
-    // Extract JSON array from response text
     let problems;
     try {
       const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
