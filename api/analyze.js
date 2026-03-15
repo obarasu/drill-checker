@@ -14,35 +14,49 @@ module.exports = async function handler(req, res) {
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
-  const prompt = `You are reading a Japanese elementary school arithmetic worksheet photo.
-Your job is OCR only — read what is printed and handwritten. Do NOT calculate answers yourself.
+  const prompt = `You are grading a Japanese elementary school math worksheet.
+
+Read ALL problems on the worksheet and grade each one.
+Handle ANY problem type:
+- Arithmetic (addition, subtraction, multiplication, division) — vertical or horizontal format
+- Word problems (文章題)
+- Comparison (circle the larger number: 大きい方を○で囲む)
+- Ordering (write numbers in order: 大きい順に番号をかく)
+- Number sequences (fill in the blank: □にあう数をかく)
+- Any other math problem type
 
 For each problem:
-1. Read the problem number in parentheses, e.g. (9) → 9
-2. Read the printed equation: top number, operator (+, -, ×, ÷), bottom number
-3. Read the student's HANDWRITTEN answer below the horizontal line. Read each digit carefully.
-4. Find the bounding box of the student's handwritten answer. Return it as [y_min, x_min, y_max, x_max] with coordinates normalized to 0-1000 (where 0,0 is top-left and 1000,1000 is bottom-right of the image).
+1. Read the problem number (e.g. (1), (2), ...)
+2. Read the full printed problem
+3. Read the student's handwritten answer
+4. Calculate or determine the CORRECT answer yourself
+5. Check if the student's answer matches the correct answer
+6. Find the bounding box of the student's handwritten answer area
 
 Return a JSON array:
 [
   {
-    "number": 9,
-    "operand1": 423,
-    "operator": "-",
-    "operand2": 276,
-    "studentAnswer": 147,
+    "number": 1,
+    "type": "addition",
+    "correctAnswer": "327",
+    "studentAnswer": "327",
+    "isCorrect": true,
     "answerBox": [250, 150, 300, 350]
   }
 ]
 
 IMPORTANT:
-- Do NOT calculate correct answers. Only read what is written.
-- "studentAnswer" = exactly what the student wrote in handwriting below the line.
-- "answerBox" = [y_min, x_min, y_max, x_max] bounding box of the handwritten answer, normalized to 0-1000.
-- If a digit is ambiguous, make your best guess.
-- If completely unreadable, set studentAnswer to null.
-- "operator": use "+", "-", "×", "÷"
-- Return ALL problems found, ordered by problem number.`;
+- "number": the problem number as integer
+- "type": brief description in English (addition, subtraction, multiplication, division, comparison, ordering, sequence, word_problem, other)
+- "correctAnswer": the right answer as a string
+- "studentAnswer": exactly what the student wrote, as a string. If blank or unreadable, use ""
+- "isCorrect": true if student's answer is correct, false otherwise. Blank = false.
+- "answerBox": [y_min, x_min, y_max, x_max] bounding box of the student's written answer, normalized to 0-1000 (0,0 = top-left, 1000,1000 = bottom-right)
+- For comparison problems: check if the student circled the correct (larger) number
+- For ordering problems: check each numbered box individually
+- For sequences: check each blank individually — treat each blank as a separate problem entry
+- Return ALL problems/blanks found, ordered by problem number
+- If completely unreadable, still include the entry with isCorrect: false`;
 
   try {
     const resp = await fetch(
@@ -66,12 +80,11 @@ IMPORTANT:
     }
 
     const result = await resp.json();
-    // Gemini 2.5 may return multiple parts (thinking + response). Concat all text parts.
     const parts = result?.candidates?.[0]?.content?.parts || [];
     const text = parts.map(p => p.text || '').join('\n');
 
     if (!text.trim()) {
-      return res.status(422).json({ error: 'Empty response from Gemini', parts: JSON.stringify(parts).slice(0, 300) });
+      return res.status(422).json({ error: 'Empty response from Gemini' });
     }
 
     // Extract JSON array from response text

@@ -388,21 +388,17 @@ const App = (() => {
           body: JSON.stringify({ imageBase64: b64 })
         });
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          if (res.status === 422) {
-            error = 'このプリントの問題形式には対応していません。\nたし算・ひき算のプリントを撮影してください。';
-          } else {
-            error = '読み取りに失敗しました（エラー ' + res.status + '）';
-          }
+          error = '読み取りに失敗しました。もう一度撮影してください。';
         } else {
           const { problems } = await res.json();
           if (problems && problems.length > 0) {
-            graded = Solver.grade(problems.map(p => ({
-              number: p.number, operand1: p.operand1,
-              operator: p.operator || '-', operand2: p.operand2,
-              studentAnswer: p.studentAnswer
-            })));
-            // Use bounding box: place marker to the right of answer, vertically centered
+            // Gemini grades directly — no need for local Solver
+            graded = problems.map(p => ({
+              number: p.number,
+              isCorrect: !!p.isCorrect,
+              correctAnswer: p.correctAnswer != null ? String(p.correctAnswer) : '',
+              studentAnswer: p.studentAnswer != null ? String(p.studentAnswer) : ''
+            }));
             const hasBox = problems.every(p => p.answerBox && p.answerBox.length === 4);
             positions = hasBox
               ? problems.map(p => {

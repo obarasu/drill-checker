@@ -1,6 +1,6 @@
 // Service Worker v4 — network-first for HTML, cache-first for static assets
-const CACHE_NAME = 'drill-checker-v4';
-const STATIC_ASSETS = ['./manifest.json'];
+const CACHE_NAME = 'drill-checker-v6';
+const STATIC_ASSETS = ['./manifest.json', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
