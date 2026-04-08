@@ -57,11 +57,17 @@ For each problem/blank, return:
 - Return ALL problems found as a single JSON array (mix of Type A and B is fine)
 - "answerBox": [y_min, x_min, y_max, x_max] normalized to 0-1000 (0,0=top-left)
 - "studentAnswer": exactly what the student wrote. null if unreadable/blank.
+- "confidence": how confident you are in reading the student's handwritten answer. "high", "medium", or "low".
+  - "high": digits are clearly legible, no ambiguity
+  - "medium": mostly readable but one or more digits are ambiguous
+  - "low": very hard to read, guessing
+  - If blank or completely unreadable, set studentAnswer to null and confidence to "low"
 - For Type A: only read numbers, do NOT calculate the answer yourself.
 - For Type B: YOU determine isCorrect and correctAnswer.
 - For ordering problems: treat each numbered box as a separate entry.
 - For sequences: treat each blank as a separate entry.
-- Order results by problem number.`;
+- Order results by problem number.
+- IMPORTANT: Be strict about reading handwritten digits. If you are not sure about even one digit, set confidence to "low". It is better to mark as uncertain than to guess wrong.`;
 
   try {
     const resp = await fetch(
