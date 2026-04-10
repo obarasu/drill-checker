@@ -113,62 +113,68 @@ For each problem/blank, return:
     const imgHeight = pages[0]?.height || 0;
 
     // --- Match Gemini problems with Vision API coordinates ---
-    // Strategy: find problem number → find the rightmost/bottommost text near it
-    // This works for both horizontal (3+2=5) and vertical (筆算) layouts
+    // Strategy: find problem number in Vision API → place marker at the number's position
+    // This is reliable because problem numbers like (1), (2) are printed and easily detected
     if (imgWidth && imgHeight) {
-      // Build a map of used annotations to prevent duplicate matching
-      const usedAnnotations = new Set();
+      // Build lookup: for each problem number string, find its Vision annotation
+      const usedAnns = new Set();
 
       problems.forEach(p => {
-        const answerStr = p.studentAnswerStr != null ? String(p.studentAnswerStr) : (p.studentAnswer != null ? String(p.studentAnswer) : null);
-        if (!answerStr) return;
-
         const numStr = String(p.number);
-        // Find problem number annotation
-        const numAnns = wordAnnotations.filter(a => {
-          const d = a.description.replace(/[()（）.]/g, '').trim();
-          return d === numStr;
-        });
 
-        if (numAnns.length === 0) return;
+        // Find problem number annotation: match "(1)", "(1)", "1)", "1" etc.
+        let bestNumAnn = null;
+        let bestNumScore = -Infinity;
 
-        const numBox = boundingToBox(numAnns[0].boundingPoly, imgWidth, imgHeight);
-        if (!numBox) return;
-        const numY = (numBox[0] + numBox[2]) / 2;
-        const numX = (numBox[1] + numBox[3]) / 2;
-
-        // Collect all candidate annotations in the problem's vicinity
-        // that match the answer string and haven't been used
-        const candidates = [];
         for (let i = 0; i < wordAnnotations.length; i++) {
-          if (usedAnnotations.has(i)) continue;
+          if (usedAnns.has(i)) continue;
           const ann = wordAnnotations[i];
-          if (ann.description !== answerStr && !ann.description.match(new RegExp(`^${answerStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))) continue;
+          const d = ann.description.replace(/[()（）\s]/g, '').trim();
+
+          if (d !== numStr) continue;
 
           const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
           if (!box) continue;
-          const annX = (box[1] + box[3]) / 2;
-          const annY = (box[0] + box[2]) / 2;
 
-          // Must be in reasonable proximity to the problem number
-          const dx = annX - numX;
-          const dy = annY - numY;
-          if (Math.abs(dy) > 250 && dy < 0) continue; // not too far above
-          if (Math.abs(dx) > 400) continue; // not too far left/right
+          // Prefer annotations that look like problem numbers (have parens nearby)
+          const hasParens = ann.description.includes('(') || ann.description.includes('（');
+          const score = hasParens ? 1000 : 0;
 
-          // Score: prefer rightmost position (horizontal) or lowest position (vertical)
-          // Weight X more for horizontal, Y more for vertical
-          const score = dx * 2 + dy; // rightward and downward are preferred
-          candidates.push({ index: i, box, score, dx, dy });
+          if (score > bestNumScore) {
+            bestNumScore = score;
+            bestNumAnn = { index: i, box };
+          }
         }
 
-        if (candidates.length === 0) return;
+        if (!bestNumAnn) {
+          // Try broader match: look for annotations containing the number with parens
+          for (let i = 0; i < wordAnnotations.length; i++) {
+            if (usedAnns.has(i)) continue;
+            const ann = wordAnnotations[i];
+            // Match patterns like "(17)", "( 17 )", "(17 )"
+            const match = ann.description.match(/\(?\s*(\d+)\s*\)?/);
+            if (match && match[1] === numStr) {
+              const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
+              if (box) {
+                bestNumAnn = { index: i, box };
+                break;
+              }
+            }
+          }
+        }
 
-        // Pick the candidate with the highest score (rightmost/lowest)
-        candidates.sort((a, b) => b.score - a.score);
-        const best = candidates[0];
-        p.answerBox = best.box;
-        usedAnnotations.add(best.index);
+        if (bestNumAnn) {
+          // Place marker at the problem number position (slightly to the left)
+          const box = bestNumAnn.box;
+          const markerBox = [
+            box[0],          // y_min
+            Math.max(0, box[1] - 30), // x_min (shifted left of number)
+            box[2],          // y_max
+            box[1]           // x_max (left edge of number)
+          ];
+          p.answerBox = markerBox;
+          usedAnns.add(bestNumAnn.index);
+        }
       });
     }
 
