@@ -113,21 +113,81 @@ For each problem/blank, return:
     const imgHeight = pages[0]?.height || 0;
 
     // --- Match Gemini problems with Vision API coordinates ---
-    problems.forEach(p => {
-      const answerStr = p.studentAnswerStr != null ? String(p.studentAnswerStr) : (p.studentAnswer != null ? String(p.studentAnswer) : null);
-      if (!answerStr || !imgWidth || !imgHeight) return;
-
-      // Try to find the answer text in Vision API annotations
-      const matched = findAnswerInAnnotations(answerStr, wordAnnotations, imgWidth, imgHeight);
-      if (matched) {
-        p.answerBox = matched;
-      }
-    });
-
-    // If Vision API matching failed for some problems, try positional matching
-    // using problem numbers as anchors
+    // Strategy: for each problem, find its "=" sign, then look for answer text to the right/below
     if (imgWidth && imgHeight) {
-      assignMissingBoxes(problems, wordAnnotations, imgWidth, imgHeight);
+      // Find all "=" annotations
+      const equalsAnns = wordAnnotations.filter(a => a.description === '=' || a.description.includes('='));
+
+      problems.forEach(p => {
+        const answerStr = p.studentAnswerStr != null ? String(p.studentAnswerStr) : (p.studentAnswer != null ? String(p.studentAnswer) : null);
+        if (!answerStr) return;
+
+        const numStr = String(p.number);
+        // Find problem number annotation (e.g., "(1)", "1)", "1")
+        const numAnns = wordAnnotations.filter(a => {
+          const d = a.description.replace(/[()（）]/g, '').trim();
+          return d === numStr;
+        });
+
+        if (numAnns.length === 0) return;
+
+        // Get the problem number's position
+        const numBox = boundingToBox(numAnns[0].boundingPoly, imgWidth, imgHeight);
+        if (!numBox) return;
+        const numY = (numBox[0] + numBox[2]) / 2;
+
+        // Find the "=" sign on the same row (similar Y coordinate, within ±50)
+        let bestEquals = null;
+        let bestEqDist = Infinity;
+        for (const eq of equalsAnns) {
+          const eqBox = boundingToBox(eq.boundingPoly, imgWidth, imgHeight);
+          if (!eqBox) continue;
+          const eqY = (eqBox[0] + eqBox[2]) / 2;
+          const yDist = Math.abs(eqY - numY);
+          if (yDist < 50 && yDist < bestEqDist) {
+            // Pick the "=" closest to the right of the number
+            const eqX = (eqBox[1] + eqBox[3]) / 2;
+            const numX = (numBox[1] + numBox[3]) / 2;
+            if (eqX > numX) {
+              bestEqDist = yDist;
+              bestEquals = eqBox;
+            }
+          }
+        }
+
+        if (!bestEquals) return;
+        const eqRightX = bestEquals[3]; // right edge of "="
+        const eqY2 = (bestEquals[0] + bestEquals[2]) / 2;
+
+        // Find answer text: to the right of "=", on the same row, matching answerStr
+        let bestMatch = null;
+        let bestDist = Infinity;
+
+        for (const ann of wordAnnotations) {
+          const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
+          if (!box) continue;
+          const annX = (box[1] + box[3]) / 2;
+          const annY = (box[0] + box[2]) / 2;
+
+          // Must be to the right of "="
+          if (annX <= eqRightX) continue;
+          // Must be on same row (Y within ±40)
+          if (Math.abs(annY - eqY2) > 40) continue;
+
+          // Check if this annotation matches the answer
+          if (ann.description === answerStr || ann.description.includes(answerStr)) {
+            const dist = annX - eqRightX; // prefer closest to "="
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestMatch = box;
+            }
+          }
+        }
+
+        if (bestMatch) {
+          p.answerBox = bestMatch;
+        }
+      });
     }
 
     return res.status(200).json({ problems, source: 'gemini+vision' });
