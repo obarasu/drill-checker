@@ -98,6 +98,11 @@ body {
   border: 3px solid var(--red);
   border-radius: 50%;
 }
+.marker-maru-with-val {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 
 .marker-batsu {
   display: flex;
@@ -308,7 +313,7 @@ const App = (() => {
       if (r.uncertain) {
         marker.innerHTML = `<div class="marker-uncertain"><span class="q-mark">?</span><span class="correct-val">${r.correctAnswer}</span></div>`;
       } else if (r.isCorrect) {
-        marker.innerHTML = '<div class="marker-maru"></div>';
+        marker.innerHTML = `<div class="marker-maru-with-val"><div class="marker-maru"></div><span class="correct-val" style="color:var(--red);">${r.correctAnswer}</span></div>`;
       } else {
         marker.innerHTML = `<div class="marker-batsu"><span class="x-mark">✓</span><span class="correct-val">${r.correctAnswer}</span></div>`;
       }
