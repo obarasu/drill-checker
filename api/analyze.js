@@ -186,6 +186,40 @@ For each problem/blank, return:
 
         if (bestMatch) {
           p.answerBox = bestMatch;
+          return; // done
+        }
+
+        // Fallback for vertical problems (筆算): no "=" sign
+        // Answer is below the problem number
+        const numX = (numBox[1] + numBox[3]) / 2;
+
+        let bestFallback = null;
+        let bestFallbackDist = Infinity;
+
+        for (const ann of wordAnnotations) {
+          const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
+          if (!box) continue;
+          const annX = (box[1] + box[3]) / 2;
+          const annY = (box[0] + box[2]) / 2;
+
+          // Must be below the problem number
+          if (annY <= numY) continue;
+          // Must be roughly same column (X within ±120)
+          if (Math.abs(annX - numX) > 120) continue;
+          // Must be within reasonable distance below (Y within 300)
+          if (annY - numY > 300) continue;
+
+          if (ann.description === answerStr || ann.description.includes(answerStr)) {
+            const dist = annY - numY; // prefer closest below
+            if (dist < bestFallbackDist) {
+              bestFallbackDist = dist;
+              bestFallback = box;
+            }
+          }
+        }
+
+        if (bestFallback) {
+          p.answerBox = bestFallback;
         }
       });
     }
