@@ -113,114 +113,62 @@ For each problem/blank, return:
     const imgHeight = pages[0]?.height || 0;
 
     // --- Match Gemini problems with Vision API coordinates ---
-    // Strategy: for each problem, find its "=" sign, then look for answer text to the right/below
+    // Strategy: find problem number → find the rightmost/bottommost text near it
+    // This works for both horizontal (3+2=5) and vertical (筆算) layouts
     if (imgWidth && imgHeight) {
-      // Find all "=" annotations
-      const equalsAnns = wordAnnotations.filter(a => a.description === '=' || a.description.includes('='));
+      // Build a map of used annotations to prevent duplicate matching
+      const usedAnnotations = new Set();
 
       problems.forEach(p => {
         const answerStr = p.studentAnswerStr != null ? String(p.studentAnswerStr) : (p.studentAnswer != null ? String(p.studentAnswer) : null);
         if (!answerStr) return;
 
         const numStr = String(p.number);
-        // Find problem number annotation (e.g., "(1)", "1)", "1")
+        // Find problem number annotation
         const numAnns = wordAnnotations.filter(a => {
-          const d = a.description.replace(/[()（）]/g, '').trim();
+          const d = a.description.replace(/[()（）.]/g, '').trim();
           return d === numStr;
         });
 
         if (numAnns.length === 0) return;
 
-        // Get the problem number's position
         const numBox = boundingToBox(numAnns[0].boundingPoly, imgWidth, imgHeight);
         if (!numBox) return;
         const numY = (numBox[0] + numBox[2]) / 2;
-
-        // Find the "=" sign on the same row (similar Y coordinate, within ±50)
-        let bestEquals = null;
-        let bestEqDist = Infinity;
-        for (const eq of equalsAnns) {
-          const eqBox = boundingToBox(eq.boundingPoly, imgWidth, imgHeight);
-          if (!eqBox) continue;
-          const eqY = (eqBox[0] + eqBox[2]) / 2;
-          const yDist = Math.abs(eqY - numY);
-          if (yDist < 50 && yDist < bestEqDist) {
-            // Pick the "=" closest to the right of the number
-            const eqX = (eqBox[1] + eqBox[3]) / 2;
-            const numX = (numBox[1] + numBox[3]) / 2;
-            if (eqX > numX) {
-              bestEqDist = yDist;
-              bestEquals = eqBox;
-            }
-          }
-        }
-
-        if (!bestEquals) return;
-        const eqRightX = bestEquals[3]; // right edge of "="
-        const eqY2 = (bestEquals[0] + bestEquals[2]) / 2;
-
-        // Find answer text: to the right of "=", on the same row, matching answerStr
-        let bestMatch = null;
-        let bestDist = Infinity;
-
-        for (const ann of wordAnnotations) {
-          const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
-          if (!box) continue;
-          const annX = (box[1] + box[3]) / 2;
-          const annY = (box[0] + box[2]) / 2;
-
-          // Must be to the right of "="
-          if (annX <= eqRightX) continue;
-          // Must be on same row (Y within ±40)
-          if (Math.abs(annY - eqY2) > 40) continue;
-
-          // Check if this annotation matches the answer
-          if (ann.description === answerStr || ann.description.includes(answerStr)) {
-            const dist = annX - eqRightX; // prefer closest to "="
-            if (dist < bestDist) {
-              bestDist = dist;
-              bestMatch = box;
-            }
-          }
-        }
-
-        if (bestMatch) {
-          p.answerBox = bestMatch;
-          return; // done
-        }
-
-        // Fallback for vertical problems (筆算): no "=" sign
-        // Answer is below the problem number
         const numX = (numBox[1] + numBox[3]) / 2;
 
-        let bestFallback = null;
-        let bestFallbackDist = Infinity;
+        // Collect all candidate annotations in the problem's vicinity
+        // that match the answer string and haven't been used
+        const candidates = [];
+        for (let i = 0; i < wordAnnotations.length; i++) {
+          if (usedAnnotations.has(i)) continue;
+          const ann = wordAnnotations[i];
+          if (ann.description !== answerStr && !ann.description.match(new RegExp(`^${answerStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))) continue;
 
-        for (const ann of wordAnnotations) {
           const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
           if (!box) continue;
           const annX = (box[1] + box[3]) / 2;
           const annY = (box[0] + box[2]) / 2;
 
-          // Must be below the problem number
-          if (annY <= numY) continue;
-          // Must be roughly same column (X within ±120)
-          if (Math.abs(annX - numX) > 120) continue;
-          // Must be within reasonable distance below (Y within 300)
-          if (annY - numY > 300) continue;
+          // Must be in reasonable proximity to the problem number
+          const dx = annX - numX;
+          const dy = annY - numY;
+          if (Math.abs(dy) > 250 && dy < 0) continue; // not too far above
+          if (Math.abs(dx) > 400) continue; // not too far left/right
 
-          if (ann.description === answerStr || ann.description.includes(answerStr)) {
-            const dist = annY - numY; // prefer closest below
-            if (dist < bestFallbackDist) {
-              bestFallbackDist = dist;
-              bestFallback = box;
-            }
-          }
+          // Score: prefer rightmost position (horizontal) or lowest position (vertical)
+          // Weight X more for horizontal, Y more for vertical
+          const score = dx * 2 + dy; // rightward and downward are preferred
+          candidates.push({ index: i, box, score, dx, dy });
         }
 
-        if (bestFallback) {
-          p.answerBox = bestFallback;
-        }
+        if (candidates.length === 0) return;
+
+        // Pick the candidate with the highest score (rightmost/lowest)
+        candidates.sort((a, b) => b.score - a.score);
+        const best = candidates[0];
+        p.answerBox = best.box;
+        usedAnnotations.add(best.index);
       });
     }
 
