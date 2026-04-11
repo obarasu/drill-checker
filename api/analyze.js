@@ -162,13 +162,16 @@ For each problem/blank, return:
           candidates.push({ index: i, box, score, dx, dy });
         }
 
-        if (candidates.length === 0) return;
-
-        // Pick the candidate with the highest score (rightmost/lowest)
-        candidates.sort((a, b) => b.score - a.score);
-        const best = candidates[0];
-        p.answerBox = best.box;
-        usedAnnotations.add(best.index);
+        if (candidates.length > 0) {
+          // Pick the candidate with the highest score (rightmost/lowest)
+          candidates.sort((a, b) => b.score - a.score);
+          const best = candidates[0];
+          p.answerBox = best.box;
+          usedAnnotations.add(best.index);
+        } else {
+          // Fallback: use problem number position (right side of number)
+          p.answerBox = [numBox[0], numBox[3], numBox[2], numBox[3] + 50];
+        }
       });
     }
 
