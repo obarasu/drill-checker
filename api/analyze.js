@@ -55,7 +55,7 @@ For each problem/blank, return:
 
 === RULES ===
 - Return ALL problems found as a single JSON array (mix of Type A and B is fine)
-- "answerBox": [y_min, x_min, y_max, x_max] normalized to 0-1000 (0,0=top-left)
+- "answerBox": [y_min, x_min, y_max, x_max] normalized to 0-1000 (0,0=top-left). This MUST be the bounding box of the STUDENT'S HANDWRITTEN ANSWER, not the printed problem text. For horizontal equations (e.g. 3+2=5), the answerBox is the handwritten number after the "=" sign. For vertical equations (筆算), the answerBox is the handwritten answer below the line. Be very precise with coordinates.
 - "studentAnswer": exactly what the student wrote. null if unreadable/blank.
 - "confidence": how confident you are in reading the student's handwritten answer. "high", "medium", or "low".
   - "high": digits are clearly legible, no ambiguity
@@ -71,7 +71,7 @@ For each problem/blank, return:
 
   try {
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
