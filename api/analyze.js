@@ -112,40 +112,63 @@ For each problem/blank, return:
     const imgWidth = pages[0]?.width || 0;
     const imgHeight = pages[0]?.height || 0;
 
-    // --- Place markers at problem number positions ---
-    // Find each problem number in Vision API annotations and place marker there
+    // --- Match Gemini problems with Vision API coordinates ---
+    // Strategy: find problem number → find the rightmost/bottommost text near it
+    // This works for both horizontal (3+2=5) and vertical (筆算) layouts
     if (imgWidth && imgHeight) {
-      const usedAnns = new Set();
+      // Build a map of used annotations to prevent duplicate matching
+      const usedAnnotations = new Set();
 
       problems.forEach(p => {
+        const answerStr = p.studentAnswerStr != null ? String(p.studentAnswerStr) : (p.studentAnswer != null ? String(p.studentAnswer) : null);
+        if (!answerStr) return;
+
         const numStr = String(p.number);
+        // Find problem number annotation
+        const numAnns = wordAnnotations.filter(a => {
+          const d = a.description.replace(/[()（）.]/g, '').trim();
+          return d === numStr;
+        });
 
-        // Find problem number annotation: "(1)", "(17)", "1", etc.
-        let bestAnn = null;
+        if (numAnns.length === 0) return;
+
+        const numBox = boundingToBox(numAnns[0].boundingPoly, imgWidth, imgHeight);
+        if (!numBox) return;
+        const numY = (numBox[0] + numBox[2]) / 2;
+        const numX = (numBox[1] + numBox[3]) / 2;
+
+        // Collect all candidate annotations in the problem's vicinity
+        // that match the answer string and haven't been used
+        const candidates = [];
         for (let i = 0; i < wordAnnotations.length; i++) {
-          if (usedAnns.has(i)) continue;
+          if (usedAnnotations.has(i)) continue;
           const ann = wordAnnotations[i];
-          const d = ann.description.replace(/[()（）\s.]/g, '').trim();
-          if (d === numStr) {
-            const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
-            if (box) {
-              bestAnn = { index: i, box };
-              break;
-            }
-          }
+          if (ann.description !== answerStr && !ann.description.match(new RegExp(`^${answerStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`))) continue;
+
+          const box = boundingToBox(ann.boundingPoly, imgWidth, imgHeight);
+          if (!box) continue;
+          const annX = (box[1] + box[3]) / 2;
+          const annY = (box[0] + box[2]) / 2;
+
+          // Must be in reasonable proximity to the problem number
+          const dx = annX - numX;
+          const dy = annY - numY;
+          if (Math.abs(dy) > 250 && dy < 0) continue; // not too far above
+          if (Math.abs(dx) > 400) continue; // not too far left/right
+
+          // Score: prefer rightmost position (horizontal) or lowest position (vertical)
+          // Weight X more for horizontal, Y more for vertical
+          const score = dx * 2 + dy; // rightward and downward are preferred
+          candidates.push({ index: i, box, score, dx, dy });
         }
 
-        if (bestAnn) {
-          // Place marker to the left of the problem number
-          const nb = bestAnn.box;
-          p.answerBox = [
-            nb[0] - 5,               // y_min (slightly above)
-            Math.max(0, nb[1] - 40), // x_min (left of number)
-            nb[2] + 5,               // y_max (slightly below)
-            nb[1]                     // x_max (left edge of number)
-          ];
-          usedAnns.add(bestAnn.index);
-        }
+        if (candidates.length === 0) return;
+
+        // Pick the candidate with the highest score (rightmost/lowest)
+        candidates.sort((a, b) => b.score - a.score);
+        const best = candidates[0];
+        p.answerBox = best.box;
+        usedAnnotations.add(best.index);
       });
     }
 
