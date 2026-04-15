@@ -80,7 +80,7 @@ For each problem/blank, return:
             { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 1024 } }
         })
       }
     );
