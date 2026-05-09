@@ -54,9 +54,75 @@ body {
 .welcome {
   text-align: center;
   padding: 40px 20px;
+  width: 100%;
+  max-width: 420px;
 }
 .welcome h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
 .welcome p { font-size: 14px; color: var(--text-sub); line-height: 1.6; }
+
+/* Mode selector */
+.mode-selector {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.mode-selector-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  text-align: center;
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+.mode-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 2px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mode-option:active { transform: scale(0.98); }
+.mode-option.selected {
+  border-color: var(--blue);
+  background: #eff6ff;
+}
+.mode-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.mode-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.mode-text { flex: 1; }
+.mode-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.mode-desc {
+  font-size: 12px;
+  color: var(--text-sub);
+  line-height: 1.4;
+}
+.mode-check {
+  font-size: 18px;
+  color: var(--blue);
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.mode-option.selected .mode-check { opacity: 1; }
 
 /* Photo view — scrollable, full width image */
 .photo-view {
@@ -226,6 +292,28 @@ body {
   <div class="welcome" id="welcomeView">
     <h2>ドリルをチェックしよう</h2>
     <p>カメラでドリルを撮影すると<br>自動でまるつけします</p>
+
+    <div class="mode-selector" id="modeSelector">
+      <div class="mode-selector-title">読み取りモード</div>
+      <label class="mode-option" data-mode="fast">
+        <input type="radio" name="mode" value="fast">
+        <span class="mode-icon">⚡</span>
+        <span class="mode-text">
+          <div class="mode-name">高速モード</div>
+          <div class="mode-desc">読み込みが早い・位置がずれることあり</div>
+        </span>
+        <span class="mode-check">✓</span>
+      </label>
+      <label class="mode-option" data-mode="accurate">
+        <input type="radio" name="mode" value="accurate">
+        <span class="mode-icon">🎯</span>
+        <span class="mode-text">
+          <div class="mode-name">高精度モード</div>
+          <div class="mode-desc">時間かかるけど位置が正確</div>
+        </span>
+        <span class="mode-check">✓</span>
+      </label>
+    </div>
   </div>
 
   <div class="photo-view" id="photoView">
@@ -277,6 +365,33 @@ const App = (() => {
   const summaryBar = $('summaryBar');
   const btnCamera = $('btnCamera');
   const btnRetry = $('btnRetry');
+  const scanLabel = document.querySelector('.scan-label');
+
+  // Mode (fast | accurate). Persist in localStorage. Default: fast.
+  const MODE_KEY = 'drillCheckerMode';
+  let currentMode = (() => {
+    const saved = localStorage.getItem(MODE_KEY);
+    return saved === 'accurate' ? 'accurate' : 'fast';
+  })();
+
+  function applyMode(mode) {
+    currentMode = mode;
+    localStorage.setItem(MODE_KEY, mode);
+    document.querySelectorAll('.mode-option').forEach(el => {
+      const isSelected = el.dataset.mode === mode;
+      el.classList.toggle('selected', isSelected);
+      const radio = el.querySelector('input[type="radio"]');
+      if (radio) radio.checked = isSelected;
+    });
+  }
+
+  document.querySelectorAll('.mode-option').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.preventDefault();
+      applyMode(el.dataset.mode);
+    });
+  });
+  applyMode(currentMode);
 
   function showButtons(mode) {
     btnCamera.style.display = mode === 'camera' ? '' : 'none';
@@ -394,18 +509,24 @@ const App = (() => {
       img.src = c.toDataURL('image/jpeg', 0.9);
       photoContainer.appendChild(img);
       showView('scanning');
+      if (scanLabel) {
+        scanLabel.textContent = currentMode === 'accurate'
+          ? 'チェック中...（高精度・少し時間がかかります）'
+          : 'チェック中...';
+      }
 
-      // Scale down for API
-      const MAX = 800;
+      // Scale down for API — accurate mode keeps more detail
+      const MAX = currentMode === 'accurate' ? 1400 : 800;
+      const QUALITY = currentMode === 'accurate' ? 0.88 : 0.80;
       let b64;
       if (c.width > MAX) {
         const rs = MAX / c.width;
         const sm = document.createElement('canvas');
         sm.width = MAX; sm.height = Math.round(c.height * rs);
         sm.getContext('2d').drawImage(c, 0, 0, sm.width, sm.height);
-        b64 = sm.toDataURL('image/jpeg', 0.80);
+        b64 = sm.toDataURL('image/jpeg', QUALITY);
       } else {
-        b64 = c.toDataURL('image/jpeg', 0.80);
+        b64 = c.toDataURL('image/jpeg', QUALITY);
       }
 
       // API call
@@ -414,7 +535,7 @@ const App = (() => {
         const res = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: b64 })
+          body: JSON.stringify({ imageBase64: b64, mode: currentMode })
         });
         if (!res.ok) {
           error = '読み取りに失敗しました。もう一度撮影してください。';

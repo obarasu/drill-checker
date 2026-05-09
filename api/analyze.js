@@ -6,11 +6,17 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageBase64 } = req.body || {};
+  const { imageBase64, mode: rawMode } = req.body || {};
   if (!imageBase64) return res.status(400).json({ error: 'No image provided' });
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not set' });
+
+  // Mode: 'fast' (Flash, no thinking) | 'accurate' (Pro, with thinking).
+  // Default to 'fast' for backward compatibility & speed.
+  const mode = rawMode === 'accurate' ? 'accurate' : 'fast';
+  const modelName = mode === 'accurate' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
+  const thinkingBudget = mode === 'accurate' ? 1024 : 0;
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
@@ -71,7 +77,7 @@ For each problem/blank, return:
 
   try {
     const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +86,7 @@ For each problem/blank, return:
             { text: prompt },
             { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
           ]}],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 1024 } }
+          generationConfig: { temperature: 0.1, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget } }
         })
       }
     );
@@ -108,7 +114,7 @@ For each problem/blank, return:
       if (!match) return res.status(422).json({ error: 'No JSON found', raw: text.slice(0, 500) });
       problems = JSON.parse(match[0]);
     }
-    return res.status(200).json({ problems, source: 'gemini' });
+    return res.status(200).json({ problems, source: 'gemini', mode, model: modelName });
 
   } catch (err) {
     return res.status(500).json({ error: err.message });
