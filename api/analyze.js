@@ -32,6 +32,27 @@ ONLY HANDWRITTEN digits below the horizontal line in 筆算 should be "studentAn
 If the digits below the line look PRINTED, the student has not yet answered → studentAnswer = null.
 
 You must verify each digit's typography. If a printed answer is part of the textbook (e.g. example problems) and the student didn't write anything, return null.
+
+=== ANSWER ROW IDENTIFICATION (CRITICAL — vertical 筆算) ===
+For each vertical 筆算 problem, the student's answer is the LARGEST cluster of handwritten digits that:
+1. Sit BELOW the horizontal line (the line drawn under the operands)
+2. Are roughly the same size as the printed operand digits
+3. Form a SINGLE horizontal line (not stacked)
+
+IGNORE all other handwritten marks in/around the problem:
+- ❌ Small digits ABOVE the horizontal line (繰り上がり/繰り下がりメモ — typically half-size or less)
+- ❌ Small digits to the SIDE of operands (between or right/left of the printed numbers)
+- ❌ Small digits in the operator area (× ÷ +/- 周り)
+- ❌ Faint/half-erased digits (mistakes that the student crossed out or scribbled over)
+- ❌ Multiple stacked layers of handwritten numbers — pick only the line that looks like the FINAL answer (clearest/largest, on the answer row)
+
+The "answerBox" must wrap ONLY the answer cluster (rule 1+2+3 above). Width should be enough to contain the answer's digits but NOT extra carry-digit memos.
+
+If multiple horizontal handwritten lines exist below the bar (e.g. the student attempted twice), choose the one written CLOSEST TO the horizontal line as the official answer.
+
+Concrete example: for "47 × 5", a student writes small "3" carry above the 7, then "235" on the answer row.
+- studentAnswer = 235 (NOT 3235, NOT 3, NOT 23)
+- answerBox wraps only "235"
 `;
 
   const prompt = `You are reading a Japanese elementary school math worksheet photo.
