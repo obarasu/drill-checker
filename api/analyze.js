@@ -63,6 +63,11 @@ For each problem/blank, return:
 - Return ALL problems found as a single JSON array (mix of Type A and B is fine)
 - "answerBox": [y_min, x_min, y_max, x_max] normalized to 0-1000 (0,0=top-left). This MUST be the bounding box of the STUDENT'S HANDWRITTEN ANSWER, not the printed problem text. For horizontal equations (e.g. 3+2=5), the answerBox is the handwritten number after the "=" sign. For vertical equations (筆算), the answerBox is the handwritten answer below the line. Be very precise with coordinates.
 - "studentAnswer": exactly what the student wrote. null if unreadable/blank.
+- **IMPORTANT — carry digits (繰り上がり) handling for vertical 筆算**: Students often write small handwritten digits ABOVE the horizontal line, BETWEEN the operand digits, or to the SIDE of operands. These are CARRY-OVER memory aids (繰り上がり/繰り下がりメモ), NOT part of the answer. RULES:
+  - The "studentAnswer" must be ONLY the digits written BELOW the horizontal line (the final answer row).
+  - IGNORE all small handwritten digits placed above the line, between/beside operand digits, or near the operator. They are scratch notes, not the answer.
+  - Example: if you see "13" written small above the answer line and "138" written below the line, studentAnswer = 138 (not 13138, not 13).
+  - The "answerBox" must wrap ONLY the digits below the line.
 - "confidence": how confident you are in reading the student's handwritten answer. "high", "medium", or "low".
   - "high": digits are clearly legible, no ambiguity
   - "medium": mostly readable but one or more digits are ambiguous
