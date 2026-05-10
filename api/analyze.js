@@ -20,8 +20,21 @@ module.exports = async function handler(req, res) {
 
   const base64Data = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
 
+  const handwritingRule = mode === 'accurate'
+    ? `\n=== HANDWRITING vs PRINT DETECTION (CRITICAL) ===
+Before extracting any number as "studentAnswer", first determine if the strokes are:
+- **HANDWRITTEN** (uneven thickness, slight tilt, irregular spacing, child-like shapes, often pencil/pen) → may be the answer
+- **PRINTED** (uniform thickness, perfectly aligned, machine-typeset typography) → NOT the answer; this is part of the worksheet template
+
+ONLY HANDWRITTEN digits below the horizontal line in 筆算 should be "studentAnswer".
+If the digits below the line look PRINTED, the student has not yet answered → studentAnswer = null.
+
+You must verify each digit's typography. If a printed answer is part of the textbook (e.g. example problems) and the student didn't write anything, return null.
+`
+    : '';
+
   const prompt = `You are reading a Japanese elementary school math worksheet photo.
-Your job is OCR only — read what is printed and handwritten. Do NOT judge correctness yourself.
+Your job is OCR only — read what is printed and handwritten. Do NOT judge correctness yourself.${handwritingRule}
 
 Detect the problem type and handle each accordingly:
 
