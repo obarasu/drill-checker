@@ -538,7 +538,26 @@ const App = (() => {
           body: JSON.stringify({ imageBase64: b64, mode: currentMode })
         });
         if (!res.ok) {
-          error = '読み取りに失敗しました。もう一度撮影してください。';
+          // Read the body so the message tells the user what actually failed.
+          // Retaking the photo does not help for credit/quota/timeout errors.
+          let detail = '';
+          try {
+            const body = await res.json();
+            detail = body.detail || body.error || '';
+          } catch {
+            detail = await res.text().catch(() => '');
+          }
+          detail = String(detail);
+
+          if (res.status === 402 || /prepayment credits are depleted|RESOURCE_EXHAUSTED/i.test(detail)) {
+            error = 'Gemini APIのクレジットが切れています。\nAI Studio で課金残高を確認してください。\n（撮り直しても直りません）';
+          } else if (res.status === 429 || /quota|rate limit/i.test(detail)) {
+            error = 'APIのレート制限／クォータ超過です。\n少し待ってから再試行してください。';
+          } else if (res.status === 504 || /timeout/i.test(detail)) {
+            error = 'タイムアウトしました。\n「高速モード」で試してみてください。';
+          } else {
+            error = `読み取りに失敗しました（${res.status}）。\n${detail.slice(0, 200)}`;
+          }
         } else {
           const { problems } = await res.json();
           if (problems && problems.length > 0) {
