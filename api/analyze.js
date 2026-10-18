@@ -133,7 +133,14 @@ For each problem/blank, return:
 
     if (!resp.ok) {
       const errText = await resp.text();
-      return res.status(502).json({ error: 'Gemini error', detail: errText.slice(0, 300) });
+      // Pass 402 (credits depleted) and 429 (rate limit) through unchanged so the
+      // frontend can tell the user what actually went wrong. Anything else is 502.
+      const status = [402, 429].includes(resp.status) ? resp.status : 502;
+      return res.status(status).json({
+        error: 'Gemini error',
+        upstreamStatus: resp.status,
+        detail: errText.slice(0, 500)
+      });
     }
 
     const result = await resp.json();
